@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Tools Hub - Calm Editorial</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      color: #1a1a1a;
+      background: #fafafa;
+      line-height: 1.6;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: white;
+      border-right: 1px solid #e5e5e5;
+      padding: 32px 24px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 40px;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-section {
+      margin-bottom: 32px;
+    }
+
+    .nav-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #999;
+      margin-bottom: 12px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .nav-item:hover {
+      background: #f5f5f5;
+      color: #1a1a1a;
+    }
+
+    .nav-item.active {
+      background: #f0f0f0;
+      color: #1a1a1a;
+      font-weight: 500;
+    }
+
+    .nav-count {
+      margin-left: auto;
+      font-size: 12px;
+      color: #999;
+      background: #f5f5f5;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .main {
+      padding: 48px 64px;
+      max-width: 1200px;
+    }
+
+    .header {
+      margin-bottom: 48px;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 16px;
+      color: #666;
+    }
+
+    .filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid #e5e5e5;
+      background: white;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-chip:hover {
+      border-color: #ccc;
+    }
+
+    .filter-chip.active {
+      background: #1a1a1a;
+      color: white;
+      border-color: #1a1a1a;
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      background: white;
+      border: 1px solid #e5e5e5;
+      border-radius: 12px;
+      margin-bottom: 40px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 15px;
+      font-family: inherit;
+      color: #1a1a1a;
+    }
+
+    .search-bar input::placeholder {
+      color: #999;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #e5e5e5;
+      border-radius: 16px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .card:hover {
+      border-color: #ccc;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+
+    .card-preview {
+      aspect-ratio: 16 / 10;
+      background: linear-gradient(135deg, #f5f5f5, #e8e8e8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .card-body {
+      padding: 20px;
+    }
+
+    .card-type {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #999;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .card-desc {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: #f5f5f5;
+      color: #666;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-top: 1px solid #f0f0f0;
+      background: #fafafa;
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      transition: all 0.15s;
+    }
+
+    .action-btn:hover {
+      background: #f0f0f0;
+      color: #1a1a1a;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 32px;
+      margin-bottom: 40px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #999;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">AI Tools Hub</div>
+      
+      <div class="nav-section">
+        <div class="nav-label">Workspace</div>
+        <div class="nav-item active">
+          <span>🏠</span>
+          <span>工具首页</span>
+          <span class="nav-count">24</span>
+        </div>
+        <div class="nav-item">
+          <span>⭐</span>
+          <span>收藏夹</span>
+          <span class="nav-count">8</span>
+        </div>
+        <div class="nav-item">
+          <span>📁</span>
+          <span>列表</span>
+        </div>
+        <div class="nav-item">
+          <span>🏷️</span>
+          <span>标签</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Insights</div>
+        <div class="nav-item">
+          <span>📊</span>
+          <span>统计</span>
+        </div>
+        <div class="nav-item">
+          <span>📦</span>
+          <span>归档</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+        <div class="nav-item">
+          <span>⚙️</span>
+          <span>设置</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="header">
+        <h1>工具首页</h1>
+        <p>按全局排序展示未归档卡片，适合快速打开常用入口</p>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-item">
+          <div class="stat-value">24</div>
+          <div class="stat-label">全部工具</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">18</div>
+          <div class="stat-label">匹配结果</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">8</div>
+          <div class="stat-label">已收藏</div>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <span>🔍</span>
+        <input type="text" placeholder="搜索工具名称、描述、标签..." />
+      </div>
+
+      <div class="filters">
+        <div class="filter-chip active">全部</div>
+        <div class="filter-chip">我的应用</div>
+        <div class="filter-chip">外部链接</div>
+        <div class="filter-chip">文档教程</div>
+        <div class="filter-chip">灵感案例</div>
+        <div class="filter-chip">写作</div>
+        <div class="filter-chip">设计</div>
+        <div class="filter-chip">开发</div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-preview">
+            <div class="card-icon">✨</div>
+          </div>
+          <div class="card-body">
+            <div class="card-type">我的应用</div>
+            <div class="card-title">IELTS WriteUp</div>
+            <div class="card-desc">AI驱动的雅思写作评估工具，支持Task 1和Task 2的智能评分与反馈</div>
+            <div class="card-tags">
+              <span class="tag">写作</span>
+              <span class="tag">AI</span>
+              <span class="tag">教育</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="card-meta">6月8日</div>
+            <div class="card-actions">
+              <button class="action-btn">⭐</button>
+              <button class="action-btn">↗️</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-preview">
+            <div class="card-icon">🎨</div>
+          </div>
+          <div class="card-body">
+            <div class="card-type">外部链接</div>
+            <div class="card-title">Midjourney</div>
+            <div class="card-desc">AI图像生成平台，通过文本提示创建高质量艺术作品</div>
+            <div class="card-tags">
+              <span class="tag">图像生成</span>
+              <span class="tag">设计</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="card-meta">midjourney.com</div>
+            <div class="card-actions">
+              <button class="action-btn">⭐</button>
+              <button class="action-btn">↗️</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-preview">
+            <div class="card-icon">📝</div>
+          </div>
+          <div class="card-body">
+            <div class="card-type">文档教程</div>
+            <div class="card-title">Prompt Engineering Guide</div>
+            <div class="card-desc">提示工程完整指南，包含技术、策略和最佳实践</div>
+            <div class="card-tags">
+              <span class="tag">提示词</span>
+              <span class="tag">教程</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="card-meta">6月7日</div>
+            <div class="card-actions">
+              <button class="action-btn">⭐</button>
+              <button class="action-btn">↗️</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-preview">
+            <div class="card-icon">💡</div>
+          </div>
+          <div class="card-body">
+            <div class="card-type">灵感案例</div>
+            <div class="card-title">Notion AI Templates</div>
+            <div class="card-desc">AI增强的Notion模板集合，提升工作效率和创意产出</div>
+            <div class="card-tags">
+              <span class="tag">模板</span>
+              <span class="tag">效率</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="card-meta">6月6日</div>
+            <div class="card-actions">
+              <button class="action-btn">⭐</button>
+              <button class="action-btn">↗️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Filter interaction
+    document.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+      });
+    });
+
+    // Favorite toggle
+    document.querySelectorAll('.action-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (btn.textContent === '⭐') {
+          btn.textContent = btn.textContent === '⭐' ? '★' : '⭐';
+          btn.style.color = btn.textContent === '★' ? '#f59e0b' : '';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

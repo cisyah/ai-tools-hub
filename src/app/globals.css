@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+:root {
+  --background: hsl(60 9% 94%);
+  --foreground: hsl(20 6% 10%);
+  --surface: hsl(0 0% 100%);
+  --surface-strong: hsl(58 11% 90%);
+  --muted: hsl(58 11% 90%);
+  --muted-foreground: hsl(30 4% 46%);
+  --border: hsl(50 8% 84%);
+  --primary: hsl(203 22% 79%);
+  --primary-foreground: hsl(195 10% 14%);
+  --accent: hsl(203 22% 79%);
+  --accent-soft: hsl(204 23% 92%);
+  --destructive: hsl(13 81% 38%);
+  --ring: hsl(203 14% 56%);
+  --sidebar: hsl(0 0% 100%);
+  --sidebar-foreground: hsl(20 6% 10%);
+}
+
+:root[data-theme="mist"] {
+  --primary: hsl(203 22% 79%);
+  --primary-foreground: hsl(195 10% 14%);
+  --accent: hsl(203 22% 79%);
+  --accent-soft: hsl(204 23% 92%);
+  --ring: hsl(203 14% 56%);
+}
+
+:root[data-theme="clay"] {
+  --primary: hsl(1 30% 64%);
+  --primary-foreground: hsl(3 17% 11%);
+  --accent: hsl(1 30% 64%);
+  --accent-soft: hsl(0 25% 93%);
+  --ring: hsl(1 20% 51%);
+}
+
+:root[data-theme="ink"] {
+  --primary: hsl(240 8% 42%);
+  --primary-foreground: hsl(0 0% 100%);
+  --accent: hsl(240 8% 42%);
+  --accent-soft: hsl(240 10% 92%);
+  --ring: hsl(240 8% 42%);
+}
+
+:root[data-theme="moss"] {
+  --primary: hsl(43 45% 68%);
+  --primary-foreground: hsl(41 31% 11%);
+  --accent: hsl(43 45% 68%);
+  --accent-soft: hsl(43 38% 92%);
+  --ring: hsl(43 24% 50%);
+}
+
+:root[data-theme="sage"] {
+  --primary: hsl(67 16% 68%);
+  --primary-foreground: hsl(68 20% 11%);
+  --accent: hsl(67 16% 68%);
+  --accent-soft: hsl(66 18% 92%);
+  --ring: hsl(67 10% 51%);
+}
+
+:root[data-theme="linen"] {
+  --primary: hsl(63 20% 82%);
+  --primary-foreground: hsl(62 14% 13%);
+  --accent: hsl(63 20% 82%);
+  --accent-soft: hsl(60 20% 93%);
+  --ring: hsl(63 10% 57%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: Optima, "Avenir Next", Avenir, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.shadow-airbnb {
+  box-shadow:
+    rgba(0, 0, 0, 0.02) 0 0 0 1px,
+    rgba(0, 0, 0, 0.04) 0 2px 6px,
+    rgba(0, 0, 0, 0.08) 0 10px 24px;
+}
+
+.shadow-airbnb-hover,
+.hover-airbnb-lift:hover {
+  box-shadow: rgba(0, 0, 0, 0.08) 0 4px 12px;
+}
+
+.page-shell {
+  width: 100%;
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
