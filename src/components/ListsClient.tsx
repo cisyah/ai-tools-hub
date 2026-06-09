@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ListFilter, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListDialog } from "@/components/ListDialog";
 import { PageTitle } from "@/components/PageTitle";
 import { useTranslation } from "@/components/LocaleProvider";
@@ -17,6 +18,9 @@ export function ListsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dialogList, setDialogList] = useState<SavedList | null | undefined>(undefined);
+  const [deleteListTarget, setDeleteListTarget] = useState<SavedList | null>(null);
+  const [deletingList, setDeletingList] = useState(false);
+  const [deletingListCards, setDeletingListCards] = useState(false);
 
   async function refreshLists() {
     const response = await fetch("/api/lists");
@@ -42,15 +46,20 @@ export function ListsClient() {
     await refreshLists();
   }
 
-  async function removeList(list: SavedList) {
-    const confirmed = window.confirm(t("sidebar.deleteListConfirm", { name: list.name }));
-    if (!confirmed) return;
+  async function removeList(list: SavedList, deleteCards = false) {
+    if (deleteCards) setDeletingListCards(true);
+    else setDeletingList(true);
 
-    const response = await fetch(`/api/lists/${list.id}`, { method: "DELETE" });
+    const response = await fetch(`/api/lists/${list.id}${deleteCards ? "?deleteCards=1" : ""}`, { method: "DELETE" });
     if (!response.ok) {
       setError(await parseApiError(response, t));
+      setDeletingList(false);
+      setDeletingListCards(false);
       return;
     }
+    setDeleteListTarget(null);
+    setDeletingList(false);
+    setDeletingListCards(false);
     await refreshLists();
   }
 
@@ -62,7 +71,7 @@ export function ListsClient() {
         description={t("pages.lists.description")}
         action={
           <button
-            className="flex h-10 items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground"
+            className="flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover hover:text-primary-hover-foreground"
             onClick={() => setDialogList(null)}
           >
             <Plus size={17} />
@@ -87,7 +96,7 @@ export function ListsClient() {
               <button className="rounded-full border border-border p-2 hover:bg-muted" onClick={() => setDialogList(list)} aria-label={t("common.edit")}>
                 <Pencil size={16} />
               </button>
-              <button className="rounded-full border border-border p-2 text-red-600 hover:bg-red-50" onClick={() => removeList(list)} aria-label={t("common.delete")}>
+              <button className="rounded-full border border-border p-2 text-red-600 hover:bg-red-50" onClick={() => setDeleteListTarget(list)} aria-label={t("common.delete")}>
                 <Trash2 size={16} />
               </button>
             </div>
@@ -100,6 +109,22 @@ export function ListsClient() {
         </div>
       ) : null}
       {dialogList !== undefined ? <ListDialog list={dialogList} onClose={() => setDialogList(undefined)} onSubmit={saveList} /> : null}
+      {deleteListTarget ? (
+        <ConfirmDialog
+          title={t("common.confirmDelete")}
+          message={t("sidebar.deleteListConfirm", { name: deleteListTarget.name })}
+          confirmLabel={deletingList ? t("common.deleting") : t("sidebar.deleteListOnly")}
+          cancelLabel={t("common.cancel")}
+          secondaryConfirmLabel={deletingListCards ? t("common.deleting") : t("sidebar.deleteListCards")}
+          confirmVariant="destructiveOutline"
+          secondaryConfirmVariant="destructive"
+          busy={deletingList}
+          secondaryBusy={deletingListCards}
+          onCancel={() => setDeleteListTarget(null)}
+          onConfirm={() => removeList(deleteListTarget)}
+          onSecondaryConfirm={() => removeList(deleteListTarget, true)}
+        />
+      ) : null}
     </div>
   );
 }

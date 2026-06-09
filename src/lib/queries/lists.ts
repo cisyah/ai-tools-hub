@@ -18,6 +18,7 @@ type ListRow = RowDataPacket & {
 type CardListRow = RowDataPacket & {
   card_id: string;
 };
+type MinSortRow = RowDataPacket & { min_sort: number | null };
 
 function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
@@ -58,16 +59,41 @@ export async function getList(id: string): Promise<SavedList | null> {
 
 export async function createList(input: ListInput, id = crypto.randomUUID()): Promise<SavedList> {
   const pool = getPool();
+  const [sortRows] = await pool.query<MinSortRow[]>("SELECT MIN(sort_order) AS min_sort FROM lists");
+  const sortOrder = sortRows[0]?.min_sort == null ? 0 : Number(sortRows[0].min_sort) - 10;
 
   await pool.execute(
     `INSERT INTO lists (id, name, description, kind, filters, sort_order)
       VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, input.name, input.description, input.kind, JSON.stringify(input.filters), input.sortOrder],
+    [id, input.name, input.description, input.kind, JSON.stringify(input.filters), sortOrder],
   );
 
   const list = await getList(id);
   if (!list) throw new Error("新建列表失败。");
   return list;
+}
+
+export async function reorderLists(listIds: string[]): Promise<SavedList[]> {
+  const uniqueIds = Array.from(new Set(listIds.map((id) => id.trim()).filter(Boolean)));
+  if (!uniqueIds.length) return listLists();
+
+  const pool = getPool();
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    for (const [index, id] of uniqueIds.entries()) {
+      await connection.execute("UPDATE lists SET sort_order = ? WHERE id = ?", [(index + 1) * 10, id]);
+    }
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+
+  return listLists();
 }
 
 export async function updateList(id: string, input: ListInput): Promise<SavedList> {
@@ -88,6 +114,34 @@ export async function updateList(id: string, input: ListInput): Promise<SavedLis
 export async function deleteList(id: string): Promise<void> {
   const pool = getPool();
   await pool.execute("DELETE FROM lists WHERE id = ?", [id]);
+}
+
+export async function deleteListWithCards(id: string): Promise<{ deletedCards: number }> {
+  const list = await getList(id);
+  if (!list) throw new Error("列表不存在。");
+
+  const cards = await getCardsForList(list);
+  const cardIds = Array.from(new Set(cards.map((card) => card.id)));
+  const pool = getPool();
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    for (const cardId of cardIds) {
+      await connection.execute("DELETE FROM cards WHERE id = ?", [cardId]);
+    }
+
+    await connection.execute("DELETE FROM lists WHERE id = ?", [id]);
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+
+  return { deletedCards: cardIds.length };
 }
 
 export async function mergeListIntoList(sourceListId: string, targetListId: string): Promise<{ mergedCount: number }> {

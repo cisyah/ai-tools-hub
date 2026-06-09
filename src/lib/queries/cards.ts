@@ -1,5 +1,6 @@
 import type { RowDataPacket } from "mysql2";
 import { getPool } from "@/lib/db";
+import { getPlatformSource } from "@/lib/platform-source";
 import { resolveCardMetadata } from "@/lib/preview";
 import type {
   ArchivedFilter,
@@ -21,6 +22,7 @@ type CardRow = RowDataPacket & {
   type: CardType;
   icon: string;
   preview_url: string | null;
+  preview_position?: string | null;
   source_domain: string;
   tags: string | string[] | null;
   notes: string;
@@ -32,6 +34,7 @@ type CardRow = RowDataPacket & {
 };
 
 type CountRow = RowDataPacket & { count: number };
+type MinSortRow = RowDataPacket & { min_sort: number | null };
 
 function parseTags(value: CardRow["tags"]): string[] {
   if (Array.isArray(value)) return value;
@@ -58,6 +61,7 @@ function toCard(row: CardRow): Card {
     type: row.type,
     icon: row.icon,
     previewUrl: row.preview_url,
+    previewPosition: row.preview_position || "50% 0%",
     sourceDomain: row.source_domain,
     tags: parseTags(row.tags),
     notes: row.notes,
@@ -88,7 +92,6 @@ export function cardMatchesFilters(card: Card, filters: ListFilters): boolean {
   if (filters.archived === "archived" && !card.isArchived) return false;
   if (filters.favorite === "favorite" && !card.isFavorite) return false;
   if (filters.favorite === "normal" && card.isFavorite) return false;
-  if (filters.type && card.type !== filters.type) return false;
 
   const query = filters.searchQuery.trim().toLowerCase();
   if (query) {
@@ -122,11 +125,13 @@ export async function getCard(id: string): Promise<Card | null> {
 export async function createCard(input: CardInput, id = crypto.randomUUID()): Promise<Card> {
   const pool = getPool();
   const metadata = await resolveCardMetadata(input);
+  const [sortRows] = await pool.query<MinSortRow[]>("SELECT MIN(sort_order) AS min_sort FROM cards WHERE is_archived = FALSE");
+  const sortOrder = sortRows[0]?.min_sort == null ? 0 : Number(sortRows[0].min_sort) - 10;
 
   await pool.execute(
     `INSERT INTO cards
-      (id, name, description, url, type, icon, preview_url, source_domain, tags, notes, is_archived, is_favorite, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, name, description, url, type, icon, preview_url, preview_position, source_domain, tags, notes, is_archived, is_favorite, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       metadata.title,
@@ -135,12 +140,13 @@ export async function createCard(input: CardInput, id = crypto.randomUUID()): Pr
       input.type,
       input.icon,
       metadata.previewUrl,
+      input.previewPosition,
       metadata.sourceDomain,
       JSON.stringify(input.tags),
       input.notes,
       input.isArchived,
       input.isFavorite,
-      input.sortOrder,
+      sortOrder,
     ],
   );
 
@@ -149,13 +155,36 @@ export async function createCard(input: CardInput, id = crypto.randomUUID()): Pr
   return card;
 }
 
+export async function reorderCards(cardIds: string[]): Promise<Card[]> {
+  const uniqueIds = Array.from(new Set(cardIds.map((id) => id.trim()).filter(Boolean)));
+  if (!uniqueIds.length) return listCards(false);
+
+  const pool = getPool();
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    for (const [index, id] of uniqueIds.entries()) {
+      await connection.execute("UPDATE cards SET sort_order = ? WHERE id = ? AND is_archived = FALSE", [(index + 1) * 10, id]);
+    }
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+
+  return listCards(false);
+}
+
 export async function updateCard(id: string, input: CardInput): Promise<Card> {
   const pool = getPool();
   const metadata = await resolveCardMetadata(input);
 
   await pool.execute(
     `UPDATE cards
-      SET name = ?, description = ?, url = ?, type = ?, icon = ?, preview_url = ?,
+      SET name = ?, description = ?, url = ?, type = ?, icon = ?, preview_url = ?, preview_position = ?,
         source_domain = ?, tags = ?, notes = ?, is_archived = ?, is_favorite = ?, sort_order = ?
       WHERE id = ?`,
     [
@@ -165,6 +194,7 @@ export async function updateCard(id: string, input: CardInput): Promise<Card> {
       input.type,
       input.icon,
       metadata.previewUrl,
+      input.previewPosition,
       metadata.sourceDomain,
       JSON.stringify(input.tags),
       input.notes,
@@ -327,17 +357,13 @@ export async function getStats(): Promise<StatsSummary> {
       GROUP BY card_id`,
   );
 
-  const [typeRows] = await pool.query<Array<RowDataPacket & { card_type: CardType; count: number }>>(
-    `SELECT card_type, COUNT(*) AS count
-      FROM card_open_events
-      GROUP BY card_type
-      ORDER BY count DESC`,
-  );
-
+  const sourceDistribution = new Map<string, number>();
   const tagDistribution = new Map<string, number>();
   for (const row of cardEventRows) {
     const card = cardsById.get(row.card_id);
     if (!card) continue;
+    const source = getPlatformSource(card.url, card.sourceDomain);
+    sourceDistribution.set(source, (sourceDistribution.get(source) || 0) + row.count);
     for (const tag of card.tags) {
       tagDistribution.set(tag, (tagDistribution.get(tag) || 0) + row.count);
     }
@@ -356,7 +382,9 @@ export async function getStats(): Promise<StatsSummary> {
       name: cardsById.get(row.card_id)?.name || "已删除卡片",
       count: row.count,
     })),
-    typeDistribution: typeRows.map((row) => ({ type: row.card_type, count: row.count })),
+    sourceDistribution: Array.from(sourceDistribution.entries())
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source)),
     tagDistribution: Array.from(tagDistribution.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS cards (
   type VARCHAR(64) NOT NULL,
   icon VARCHAR(80) NOT NULL DEFAULT '',
   preview_url MEDIUMTEXT NULL,
+  preview_position VARCHAR(32) NOT NULL DEFAULT '50% 0%',
   source_domain VARCHAR(255) NOT NULL DEFAULT '',
   tags JSON NOT NULL,
   notes TEXT NOT NULL,

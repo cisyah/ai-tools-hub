@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "AI Tools Hub Clipper",
+  "version": "0.1.0",
+  "description": "一键从当前网页提取信息并存入你的 AI Tools Hub。",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "存入 AI Tools Hub",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

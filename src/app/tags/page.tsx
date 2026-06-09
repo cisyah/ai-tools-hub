@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import { TagsClient } from "@/components/TagsClient";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return (
-    <Suspense fallback={null}>
-      <TagsClient />
-    </Suspense>
-  );
+  redirect("/manage?view=tags");
 }

@@ -41,6 +41,16 @@ function asCardType(value: unknown): CardType | null {
   return isCardTypeSlug(slug) ? slug : null;
 }
 
+function asPreviewPosition(value: unknown): string {
+  const text = asString(value);
+  const match = text.match(/^(\d{1,3})%\s+(\d{1,3})%$/);
+  if (!match) return "50% 0%";
+
+  const x = Math.min(100, Math.max(0, Number(match[1])));
+  const y = Math.min(100, Math.max(0, Number(match[2])));
+  return `${x}% ${y}%`;
+}
+
 function asListKind(value: unknown): ListKind | null {
   return value === "manual" || value === "smart" ? value : null;
 }
@@ -73,8 +83,6 @@ export function isExternalHttpUrl(value: string): boolean {
   }
 }
 
-export const CARD_DESCRIPTION_MAX_LENGTH = 120;
-
 export function parseCardInput(body: unknown): CardInput {
   if (!body || typeof body !== "object") {
     throw new Error("请求体格式不正确。");
@@ -84,15 +92,11 @@ export function parseCardInput(body: unknown): CardInput {
   const name = asString(data.name);
   const description = asString(data.description);
   const url = asString(data.url);
-  const type = asCardType(data.type);
+  const type = asCardType(data.type) || "external_link";
   const sortOrder = Number(data.sortOrder ?? data.sort_order ?? 0);
 
   if (!name) throw new Error("名称不能为空。");
-  if (description.length > CARD_DESCRIPTION_MAX_LENGTH) {
-    throw new Error(`简介不能超过 ${CARD_DESCRIPTION_MAX_LENGTH} 字。`);
-  }
   if (!url || !isValidUrl(url)) throw new Error("URL 只支持 http(s):// 或站内 /path。");
-  if (!type) throw new Error("应用类型不正确。");
   if (!Number.isFinite(sortOrder)) throw new Error("排序值必须是数字。");
 
   return {
@@ -102,6 +106,7 @@ export function parseCardInput(body: unknown): CardInput {
     type,
     icon: asString(data.icon),
     previewUrl: asString(data.previewUrl ?? data.preview_url) || null,
+    previewPosition: asPreviewPosition(data.previewPosition ?? data.preview_position),
     sourceDomain: asString(data.sourceDomain ?? data.source_domain),
     tags: asTags(data.tags),
     notes: asString(data.notes),
@@ -138,12 +143,9 @@ export function parseOpenEventInput(body: unknown): OpenEventInput {
 export function parseListFilters(value: unknown): ListFilters {
   if (!value || typeof value !== "object") return defaultListFilters;
   const data = value as Record<string, unknown>;
-  const typeValue = data.type ?? data.filterType;
-  const type = typeValue ? asCardType(typeValue) || "" : "";
-
   return {
     searchQuery: asString(data.searchQuery ?? data.search_query),
-    type,
+    type: "",
     tags: asTags(data.tags ?? data.filterTags ?? data.filter_tags),
     archived: asArchivedFilter(data.archived),
     favorite: asFavoriteFilter(data.favorite),

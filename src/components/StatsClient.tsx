@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PageTitle } from "@/components/PageTitle";
 import { useTranslation } from "@/components/LocaleProvider";
 import { translateEnglish } from "@/lib/i18n";
-import { useCardTypeLabels } from "@/lib/i18n/hooks";
+import { platformSourceLabels, type PlatformSource } from "@/lib/platform-source";
 import type { StatsSummary } from "@/lib/types";
 
 function StatBox({ label, value, tone }: { label: string; value: number; tone?: "primary" }) {
@@ -23,7 +23,7 @@ function BarRow({ label, value, max }: { label: string; value: number; max: numb
     <div className="grid grid-cols-[120px_1fr_36px] items-center gap-3 text-sm">
       <span className="truncate">{label}</span>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-accent" style={{ width: `${width}%` }} />
+        <div className="h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
       </div>
       <span className="text-right text-muted-foreground">{value}</span>
     </div>
@@ -55,35 +55,39 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
     <section className="rounded-[22px] border border-border bg-surface p-5">
       <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
         <h2 className="font-semibold">{title}</h2>
-        <span className="h-2 w-2 rounded-full bg-accent" />
+        <span className="h-2 w-2 rounded-full bg-primary" />
       </div>
       <div className="space-y-4">{children}</div>
     </section>
   );
 }
 
-function TypeBlocks({ stats, cardTypeLabels, emptyLabel }: { stats: StatsSummary; cardTypeLabels: Record<string, string>; emptyLabel: string }) {
-  const total = Math.max(stats.typeDistribution.reduce((sum, item) => sum + item.count, 0), 1);
+function sourceLabel(source: string, otherLabel: string): string {
+  if (source === "other") return otherLabel;
+  return platformSourceLabels[source as PlatformSource] || otherLabel;
+}
+
+function SourceBlocks({ stats, emptyLabel, otherLabel }: { stats: StatsSummary; emptyLabel: string; otherLabel: string }) {
+  const total = Math.max(stats.sourceDistribution.reduce((sum, item) => sum + item.count, 0), 1);
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      {stats.typeDistribution.map((item) => (
-        <div key={item.type} className="rounded-xl bg-background p-3">
-          <div className="text-xs text-muted-foreground">{cardTypeLabels[item.type]}</div>
+      {stats.sourceDistribution.map((item) => (
+        <div key={item.source} className="rounded-xl bg-background p-3">
+          <div className="text-xs text-muted-foreground">{sourceLabel(item.source, otherLabel)}</div>
           <div className="mt-2 flex items-end justify-between gap-3">
             <span className="text-2xl font-bold">{item.count}</span>
             <span className="text-xs text-muted-foreground">{Math.round((item.count / total) * 100)}%</span>
           </div>
         </div>
       ))}
-      {!stats.typeDistribution.length ? <div className="text-sm text-muted-foreground">{emptyLabel}</div> : null}
+      {!stats.sourceDistribution.length ? <div className="text-sm text-muted-foreground">{emptyLabel}</div> : null}
     </div>
   );
 }
 
 export function StatsClient() {
   const { t } = useTranslation();
-  const cardTypeLabels = useCardTypeLabels();
   const [stats, setStats] = useState<StatsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -119,8 +123,8 @@ export function StatsClient() {
             <Panel title={t("pages.stats.last30DaysPanel")}>
               <TrendStrip daily={stats.daily} emptyLabel={t("pages.stats.noTrend")} />
             </Panel>
-            <Panel title={t("pages.stats.typeDistribution")}>
-              <TypeBlocks stats={stats} cardTypeLabels={cardTypeLabels} emptyLabel={t("pages.stats.noTypeData")} />
+            <Panel title={t("pages.stats.sourceDistribution")}>
+              <SourceBlocks stats={stats} emptyLabel={t("pages.stats.noSourceData")} otherLabel={t("platformSources.other")} />
             </Panel>
             <Panel title={t("pages.stats.topTools")}>
               {stats.topCards.map((item) => (

@@ -1,12 +1,11 @@
 "use client";
 
-import { Plus } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AddMoreCard } from "@/components/AddableAppCard";
 import { CardDialog } from "@/components/CardDialog";
-import { CardGrid } from "@/components/CardGrid";
 import { ListCardPicker } from "@/components/ListCardPicker";
 import { PageTitle } from "@/components/PageTitle";
+import { ToolCard } from "@/components/ToolCard";
 import type { FilterState } from "@/components/FilterBar";
 import { useTranslation } from "@/components/LocaleProvider";
 import { parseApiError, translateEnglish } from "@/lib/i18n";
@@ -34,7 +33,7 @@ export function ListDetailClient({ id }: { id: string }) {
   async function refreshList() {
     const [listResponse, cardsResponse] = await Promise.all([
       fetch(`/api/lists/${id}`),
-      fetch("/api/cards?includeArchived=1"),
+      fetch("/api/cards"),
     ]);
 
     if (!listResponse.ok) throw new Error(await parseApiError(listResponse, t));
@@ -111,47 +110,59 @@ export function ListDetailClient({ id }: { id: string }) {
         eyebrow={translateEnglish("pages.listDetail.eyebrow")}
         title={list?.name || t("nav.lists")}
         description={listDescription}
-        before={
-          <Link href="/lists" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-            {t("pages.listDetail.back")}
-          </Link>
-        }
       />
       {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-full border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-      {list?.kind === "manual" ? (
-        <button
-          className="inline-flex h-10 items-center gap-2 self-start rounded-full bg-accent px-5 text-sm font-semibold text-accent-foreground transition hover:opacity-90"
-          onClick={() => setPickerOpen(true)}
-        >
-          <Plus size={16} />
-          {t("pages.listDetail.addToList")}
-        </button>
-      ) : null}
       {!loading && list ? (
-        <CardGrid
-          cards={cards}
-          filters={neutralFilters}
-          onFavorite={async (card) => {
-            const nextFavorite = !card.isFavorite;
-            await fetch(`/api/cards/${card.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ isFavorite: nextFavorite }),
-            });
-            await refreshList();
-          }}
-          onArchive={async (card) => {
-            await fetch(`/api/cards/${card.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ isArchived: true }),
-            });
-            await refreshList();
-          }}
-          onEdit={(card) => setDialogCard(card)}
-          onDelete={list.kind === "manual" ? removeCard : undefined}
-        />
+        cards.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {cards.map((card) => (
+              <ToolCard
+                key={card.id}
+                card={card}
+                filters={neutralFilters}
+                onFavorite={async (item) => {
+                  const nextFavorite = !item.isFavorite;
+                  await fetch(`/api/cards/${item.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ isFavorite: nextFavorite }),
+                  });
+                  await refreshList();
+                }}
+                onArchive={async (item) => {
+                  await fetch(`/api/cards/${item.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ isArchived: true }),
+                  });
+                  await refreshList();
+                }}
+                onEdit={(item) => setDialogCard(item)}
+                onDelete={list.kind === "manual" ? removeCard : undefined}
+              />
+            ))}
+            {list.kind === "manual" && addableCards.length ? (
+              <AddMoreCard
+                title={t("pages.listDetail.addMore")}
+                hint={t("pages.listDetail.addMoreHint")}
+                onClick={() => setPickerOpen(true)}
+              />
+            ) : null}
+          </div>
+        ) : list.kind === "manual" && addableCards.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <AddMoreCard
+              title={t("pages.listDetail.addMore")}
+              hint={t("pages.listDetail.addMoreHint")}
+              onClick={() => setPickerOpen(true)}
+            />
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-10 text-center text-sm text-muted-foreground">
+            {list.kind === "manual" ? t("pages.listDetail.pickerEmpty") : t("cardGrid.empty")}
+          </div>
+        )
       ) : null}
       {dialogCard !== undefined ? (
         <CardDialog

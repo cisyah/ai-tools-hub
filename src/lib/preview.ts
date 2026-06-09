@@ -1,9 +1,6 @@
-import { CARD_DESCRIPTION_MAX_LENGTH, isExternalHttpUrl } from "@/lib/validation";
+import { isExternalHttpUrl } from "@/lib/validation";
+import { extractPlatformMetadata } from "@/lib/platform-extractors";
 import type { MetadataResult } from "@/lib/types";
-
-function truncateDescription(value: string): string {
-  return value.slice(0, CARD_DESCRIPTION_MAX_LENGTH);
-}
 
 type MicrolinkMedia = {
   url?: string;
@@ -52,17 +49,61 @@ export function resolvePreviewUrl(data: MicrolinkResponse["data"]): string | nul
   return resolvePreviewUrlCandidates(data)[0] ?? null;
 }
 
+const emptyFallback: MetadataResult = {
+  title: "",
+  description: "",
+  previewUrl: null,
+  previewUrlCandidates: [],
+  sourceDomain: "",
+  author: "",
+  platform: "generic",
+};
+
 export async function fetchUrlMetadata(url: string): Promise<MetadataResult> {
-  const fallback: MetadataResult = {
-    title: "",
-    description: "",
-    previewUrl: null,
-    previewUrlCandidates: [],
-    sourceDomain: getDomain(url),
-  };
+  const domain = getDomain(url);
+  const fallback: MetadataResult = { ...emptyFallback, sourceDomain: domain };
 
   if (!isExternalHttpUrl(url)) return fallback;
 
+  // ── 1. 尝试平台专属提取器 ──────────────────────────────────
+  try {
+    const platformResult = await extractPlatformMetadata(url);
+    if (platformResult) {
+      // 小红书：返回平台标记但无标题，提示用户手动填写
+      if (
+        platformResult.platform === "xiaohongshu" &&
+        !platformResult.title
+      ) {
+        return {
+          title: "",
+          description: "",
+          previewUrl: null,
+          previewUrlCandidates: [],
+          sourceDomain: domain,
+          author: "",
+          platform: "xiaohongshu",
+        };
+      }
+      // 其他平台：有标题就用
+      if (platformResult.title) {
+        return {
+          title: platformResult.title,
+          description: "",
+          previewUrl: platformResult.thumbnail,
+          previewUrlCandidates: platformResult.thumbnail
+            ? [platformResult.thumbnail]
+            : [],
+          sourceDomain: domain,
+          author: platformResult.author,
+          platform: platformResult.platform,
+        };
+      }
+    }
+  } catch {
+    // 平台提取器失败，继续走 Microlink
+  }
+
+  // ── 2. 兜底：Microlink 通用抓取 ────────────────────────────
   try {
     const endpoint = new URL("https://api.microlink.io/");
     endpoint.searchParams.set("url", url);
@@ -82,10 +123,12 @@ export async function fetchUrlMetadata(url: string): Promise<MetadataResult> {
 
     return {
       title: payload.data?.title || "",
-      description: truncateDescription(payload.data?.description || ""),
+      description: payload.data?.description || "",
       previewUrl: previewUrlCandidates[0] ?? null,
       previewUrlCandidates,
       sourceDomain: getDomain(payload.data?.url || url),
+      author: payload.data?.publisher || "",
+      platform: "generic",
     };
   } catch {
     return fallback;
@@ -98,13 +141,15 @@ export async function resolveCardMetadata(input: {
   url: string;
   previewUrl?: string | null;
   sourceDomain?: string;
-}): Promise<Pick<MetadataResult, "title" | "description" | "previewUrl" | "sourceDomain">> {
+}): Promise<Pick<MetadataResult, "title" | "description" | "previewUrl" | "sourceDomain" | "author" | "platform">> {
   if (input.name && input.description && input.previewUrl && input.sourceDomain) {
     return {
       title: input.name,
-      description: truncateDescription(input.description),
+      description: input.description,
       previewUrl: input.previewUrl,
       sourceDomain: input.sourceDomain,
+      author: "",
+      platform: "generic",
     };
   }
 
@@ -112,8 +157,10 @@ export async function resolveCardMetadata(input: {
 
   return {
     title: input.name || metadata.title,
-    description: truncateDescription(input.description || metadata.description),
+    description: input.description || metadata.description,
     previewUrl: input.previewUrl || metadata.previewUrl,
     sourceDomain: input.sourceDomain || metadata.sourceDomain,
+    author: metadata.author,
+    platform: metadata.platform,
   };
 }

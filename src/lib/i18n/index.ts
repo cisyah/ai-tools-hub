@@ -37,7 +37,7 @@ export function createTranslator(locale: Locale): Translator {
   };
 }
 
-const apiErrorKeyMap: Record<string, keyof Messages["errors"] | "descriptionTooLong"> = {
+const apiErrorKeyMap: Record<string, keyof Messages["errors"]> = {
   "请求失败。": "requestFailed",
   "服务器错误。": "serverError",
   "请求体格式不正确。": "invalidBody",
@@ -71,18 +71,8 @@ const apiErrorKeyMap: Record<string, keyof Messages["errors"] | "descriptionTooL
 
 export function translateApiError(message: string, t: Translator): string {
   const directKey = apiErrorKeyMap[message];
-  if (directKey && directKey !== "descriptionTooLong") {
+  if (directKey) {
     return t(`errors.${directKey}`);
-  }
-
-  const descriptionMatch = message.match(/^简介不能超过 (\d+) 字。$/);
-  if (descriptionMatch) {
-    return t("errors.descriptionTooLong", { max: descriptionMatch[1] });
-  }
-
-  const englishDescriptionMatch = message.match(/^Description cannot exceed (\d+) characters\.$/);
-  if (englishDescriptionMatch) {
-    return t("errors.descriptionTooLong", { max: englishDescriptionMatch[1] });
   }
 
   const typeInUseMatch = message.match(/^该应用类型仍被 (\d+) 张卡片使用，无法删除。$/);

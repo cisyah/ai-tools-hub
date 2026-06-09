@@ -1,8 +1,9 @@
 "use client";
 
-import { Info, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@/components/LocaleProvider";
+import { NameCreateDialog } from "@/components/NameCreateDialog";
 import { useToast } from "@/components/ToastProvider";
 import { useCardTypes } from "@/lib/hooks/useCardTypes";
 import { parseApiError, translateApiError } from "@/lib/i18n";
@@ -15,7 +16,7 @@ export function CardTypesManager() {
   const [selectedId, setSelectedId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [renameValue, setRenameValue] = useState("");
-  const [newTypeLabel, setNewTypeLabel] = useState("");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -59,8 +60,8 @@ export function CardTypesManager() {
     return getLabel(type.id) || type.label;
   }
 
-  async function addType() {
-    const label = newTypeLabel.trim();
+  async function addType(inputLabel: string) {
+    const label = inputLabel.trim();
     if (!label) {
       setError(t("errors.typeNameRequired"));
       return;
@@ -78,13 +79,13 @@ export function CardTypesManager() {
     setSaving(false);
 
     if (!response.ok) {
-      setError(await parseApiError(response, t));
-      return;
+      const message = await parseApiError(response, t);
+      setError(message);
+      throw new Error(message);
     }
 
     const payload = await response.json();
     await refreshTypes();
-    setNewTypeLabel("");
     setSelectedId(payload.type?.id || "");
     showToast({ message: t("pages.cardTypes.added", { name: label }) });
   }
@@ -144,40 +145,16 @@ export function CardTypesManager() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-3 rounded-[18px] border border-border bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
-        <Info size={18} className="mt-0.5 shrink-0 text-accent" />
-        <div className="space-y-1">
-          <p>
-            <span className="mr-1.5 font-semibold text-foreground">{t("pages.cardTypes.whatIsTitle")}</span>
-            {t("pages.cardTypes.whatIsBody")}
-          </p>
-          <p>
-            <span className="mr-1.5 font-semibold text-foreground">{t("pages.cardTypes.whatCanDoTitle")}</span>
-            {t("pages.cardTypes.whatCanDoBody")}
-          </p>
-        </div>
-      </div>
-
       {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{translateApiError(error, t)}</div> : null}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          value={newTypeLabel}
-          onChange={(event) => setNewTypeLabel(event.target.value)}
-          placeholder={t("pages.cardTypes.newPlaceholder")}
-          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 text-sm outline-none transition focus:border-ring"
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void addType();
-          }}
-        />
+      <div className="flex justify-end">
         <button
           type="button"
-          disabled={saving || !newTypeLabel.trim()}
-          onClick={() => void addType()}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          onClick={() => setAddDialogOpen(true)}
+          className="flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover hover:text-primary-hover-foreground"
         >
-          <Plus size={16} />
+          <Plus size={17} aria-hidden="true" />
           {t("pages.cardTypes.addType")}
         </button>
       </div>
@@ -213,7 +190,7 @@ export function CardTypesManager() {
                       >
                         <td className="px-4 py-3">
                           <span
-                            className={`rounded-lg px-2.5 py-1 text-sm font-semibold ${active ? "bg-primary text-primary-foreground" : "bg-background/70 text-foreground"}`}
+                            className={`rounded-lg px-2.5 py-1 text-sm font-semibold ${active ? "bg-accent-soft text-foreground" : "bg-background/70 text-foreground"}`}
                           >
                             {displayLabel(type)}
                           </span>
@@ -307,6 +284,17 @@ export function CardTypesManager() {
         <div className="rounded-[24px] border border-dashed border-border bg-muted px-4 py-10 text-center text-sm text-muted-foreground">
           {t("pages.cardTypes.empty")}
         </div>
+      ) : null}
+      {addDialogOpen ? (
+        <NameCreateDialog
+          title={t("pages.cardTypes.addDialogTitle")}
+          inputLabel={t("pages.cardTypes.newTypeName")}
+          placeholder={t("pages.cardTypes.namePlaceholder")}
+          submitLabel={t("pages.cardTypes.addType")}
+          saving={saving}
+          onClose={() => setAddDialogOpen(false)}
+          onSubmit={addType}
+        />
       ) : null}
     </div>
   );

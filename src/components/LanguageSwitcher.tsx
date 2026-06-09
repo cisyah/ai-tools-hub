@@ -35,8 +35,8 @@ export function LanguageSwitcher({ className = "", compact = false }: LanguageSw
 
   return (
     <div className={className}>
-      <div className="mb-2 text-sm font-semibold">{t("locale.label")}</div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="mb-2 text-xs font-medium text-muted-foreground">{t("locale.label")}</div>
+      <div className="inline-flex h-9 items-center rounded-[8px] border border-border bg-surface p-0.5">
         {localeOptions.map((option) => {
           const active = locale === option.value;
           return (
@@ -44,8 +44,8 @@ export function LanguageSwitcher({ className = "", compact = false }: LanguageSw
               key={option.value}
               type="button"
               onClick={() => setLocale(option.value as Locale)}
-              className={`h-10 rounded-md border px-3 text-sm font-semibold transition ${
-                active ? "border-accent bg-primary text-primary-foreground" : "border-border bg-surface hover:bg-surface-strong"
+              className={`h-8 rounded-[6px] px-3.5 text-sm font-medium transition ${
+                active ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground hover:bg-surface-strong hover:text-foreground"
               }`}
             >
               {option.label}
@@ -53,7 +53,7 @@ export function LanguageSwitcher({ className = "", compact = false }: LanguageSw
           );
         })}
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">{t("locale.hint")}</p>
+      <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{t("locale.hint")}</p>
     </div>
   );
 }

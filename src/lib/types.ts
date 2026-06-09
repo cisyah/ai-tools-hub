@@ -36,6 +36,7 @@ export type Card = {
   type: CardType;
   icon: string;
   previewUrl: string | null;
+  previewPosition: string;
   sourceDomain: string;
   tags: string[];
   notes: string;
@@ -53,6 +54,7 @@ export type CardInput = {
   type: CardType;
   icon: string;
   previewUrl?: string | null;
+  previewPosition: string;
   sourceDomain: string;
   tags: string[];
   notes: string;
@@ -94,6 +96,8 @@ export type MetadataResult = {
   previewUrl: string | null;
   previewUrlCandidates: string[];
   sourceDomain: string;
+  author: string;
+  platform: "youtube" | "bilibili" | "xiaohongshu" | "generic";
 };
 
 export type TagCount = {
@@ -107,7 +111,7 @@ export type StatsSummary = {
   last30Days: number;
   daily: Array<{ eventDay: string; count: number }>;
   topCards: Array<{ cardId: string; name: string; count: number }>;
-  typeDistribution: Array<{ type: CardType; count: number }>;
+  sourceDistribution: Array<{ source: string; count: number }>;
   tagDistribution: TagCount[];
 };
 

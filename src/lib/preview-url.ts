@@ -10,8 +10,9 @@ export async function isImageUrlLoadable(url: string): Promise<boolean> {
 
   return new Promise((resolve) => {
     const image = new Image();
-    image.onload = () => resolve(true);
-    image.onerror = () => resolve(false);
+    const timer = setTimeout(() => resolve(false), 5000);
+    image.onload = () => { clearTimeout(timer); resolve(true); };
+    image.onerror = () => { clearTimeout(timer); resolve(false); };
     image.src = url;
   });
 }

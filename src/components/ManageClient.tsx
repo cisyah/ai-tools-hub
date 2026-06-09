@@ -1,18 +1,19 @@
 "use client";
 
 import { Archive, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CardDialog } from "@/components/CardDialog";
 import { CardIcon } from "@/components/icons";
 import { PageTitle } from "@/components/PageTitle";
-import { CardTypeSelect } from "@/components/CardTypeSelect";
+import { TagManagerPanel } from "@/components/TagsClient";
 import { useTranslation } from "@/components/LocaleProvider";
 import { SelectMenu } from "@/components/SelectMenu";
 import { useToast } from "@/components/ToastProvider";
-import { useCardTypes } from "@/lib/hooks/useCardTypes";
 import { parseApiError, translateEnglish, type Translator } from "@/lib/i18n";
 import { useDateFormatter } from "@/lib/i18n/hooks";
-import type { Card, CardInput, CardType } from "@/lib/types";
+import type { Card, CardInput } from "@/lib/types";
 
 type ManageStatusFilter = "" | "active" | "archived" | "favorite";
 
@@ -24,6 +25,7 @@ function cardToInput(card: Card): CardInput {
     type: card.type,
     icon: card.icon,
     previewUrl: card.previewUrl,
+    previewPosition: card.previewPosition,
     sourceDomain: card.sourceDomain,
     tags: card.tags,
     notes: card.notes,
@@ -35,18 +37,18 @@ function cardToInput(card: Card): CardInput {
 
 function StatusPill({ card, t }: { card: Card; t: Translator }) {
   if (card.isArchived) {
-    return <span className="rounded-lg bg-background/70 px-2 py-1 text-xs font-medium text-muted-foreground">{t("status.archived")}</span>;
+    return <span className="inline-flex whitespace-nowrap rounded-lg bg-accent-soft px-2 py-1 text-xs font-medium text-app-card-muted">{t("status.archived")}</span>;
   }
   if (card.isFavorite) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-lg bg-background/70 px-2 py-1 text-xs font-semibold text-muted-foreground">
+      <span className="inline-flex whitespace-nowrap items-center gap-1 rounded-lg bg-accent-soft px-2 py-1 text-xs font-semibold text-app-card-muted">
         <Star size={12} className="fill-accent text-accent" />
         {t("status.favourite")}
       </span>
     );
   }
 
-  return <span className="rounded-lg bg-background/70 px-2 py-1 text-xs font-medium text-muted-foreground">{t("status.active")}</span>;
+  return <span className="inline-flex whitespace-nowrap rounded-lg bg-accent-soft px-2 py-1 text-xs font-medium text-app-card-muted">{t("status.active")}</span>;
 }
 
 function matchesManageSearch(card: Card, query: string) {
@@ -65,20 +67,20 @@ function matchesManageSearch(card: Card, query: string) {
 }
 
 const manageActionButton =
-  "rounded-lg border border-border p-2 text-muted-foreground transition hover:bg-muted hover:text-accent";
+  "rounded-lg border border-border p-2 text-app-card-muted transition hover:bg-muted hover:text-app-card-foreground";
 
 export function ManageClient() {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
+  const activeView = searchParams.get("view") === "tags" ? "tags" : "apps";
   const dateFormatter = useDateFormatter();
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dialogCard, setDialogCard] = useState<Card | null | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<CardType | "">("");
   const [statusFilter, setStatusFilter] = useState<ManageStatusFilter>("");
   const { showToast } = useToast();
-  const { getLabel: getCardTypeLabel } = useCardTypes();
 
   const statusFilterOptions = useMemo(
     () => [
@@ -92,9 +94,9 @@ export function ManageClient() {
 
   const statItems = useMemo(
     () => [
-      { key: "active", label: t("pages.manage.activeCount") },
-      { key: "archived", label: t("pages.manage.archivedCount") },
-      { key: "favourite", label: t("pages.manage.favouriteCount") },
+      { key: "active", label: t("pages.manage.activeCount"), markerClass: "bg-primary" },
+      { key: "archived", label: t("pages.manage.archivedCount"), markerClass: "bg-app-card-muted" },
+      { key: "favourite", label: t("pages.manage.favouriteCount"), markerClass: "bg-accent" },
     ],
     [t],
   );
@@ -115,13 +117,12 @@ export function ManageClient() {
   const filteredCards = useMemo(
     () =>
       cards.filter((card) => {
-        if (typeFilter && card.type !== typeFilter) return false;
         if (statusFilter === "active" && card.isArchived) return false;
         if (statusFilter === "archived" && !card.isArchived) return false;
         if (statusFilter === "favorite" && !card.isFavorite) return false;
         return matchesManageSearch(card, searchQuery.trim());
       }),
-    [cards, searchQuery, statusFilter, typeFilter],
+    [cards, searchQuery, statusFilter],
   );
   const activeCount = cards.filter((card) => !card.isArchived).length;
   const archivedCount = cards.length - activeCount;
@@ -218,51 +219,57 @@ export function ManageClient() {
       <PageTitle
         eyebrow={translateEnglish("pages.manage.eyebrow")}
         title={t("nav.manage")}
-        description={t("pages.manage.description")}
+        description={activeView === "tags" ? t("pages.manage.tagsDescription") : t("pages.manage.description")}
         action={
-          <button
-            className="flex h-10 items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground"
-            onClick={() => setDialogCard(null)}
-          >
-            <Plus size={17} aria-hidden="true" />
-            {t("pages.home.addNew")}
-          </button>
+          activeView === "apps" ? (
+            <button
+              className="flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover hover:text-primary-hover-foreground"
+              onClick={() => setDialogCard(null)}
+            >
+              <Plus size={17} aria-hidden="true" />
+              {t("pages.home.addNew")}
+            </button>
+          ) : null
         }
       />
+      <div className="flex gap-2 border-b border-[#EEECE5] pb-2">
+        <Link
+          href="/manage"
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            activeView === "apps" ? "bg-accent-soft text-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
+          }`}
+        >
+          {t("pages.manage.tabApps")}
+        </Link>
+        <Link
+          href="/manage?view=tags"
+          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            activeView === "tags" ? "bg-accent-soft text-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
+          }`}
+        >
+          {t("pages.manage.tabTags")}
+        </Link>
+      </div>
+      {activeView === "tags" ? <TagManagerPanel /> : null}
+      {activeView === "apps" ? (
+        <>
       {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-      <div className="grid gap-3 sm:grid-cols-3">
-        {statItems.map((item) => (
-          <div key={item.key} className="border-b border-border py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{item.label}</div>
-            <div className="mt-1 text-3xl font-bold">{statValues[item.key]}</div>
-          </div>
-        ))}
-      </div>
       <section className="space-y-3">
-        <div className="grid gap-3 rounded-lg border border-border bg-surface p-4 lg:grid-cols-[1fr_180px_180px]">
+        <div className="grid gap-2 border-b border-[#EEECE5] py-2.5 lg:grid-cols-[minmax(280px,1fr)_180px]">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-11 w-full rounded-lg border border-border bg-surface pl-10 pr-4 text-sm outline-none transition focus:border-ring"
+              className="h-10 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-sm outline-none transition focus:border-ring"
               placeholder={t("pages.manage.searchPlaceholder")}
             />
           </label>
-          <CardTypeSelect
-            value={typeFilter}
-            onChange={(nextValue) => setTypeFilter(nextValue)}
-            includeAllOption
-            allOptionLabel={t("filter.allTypes")}
-            buttonClassName="h-11 rounded-lg"
-            ariaLabel={t("filter.typeAria")}
-          />
           <SelectMenu
             value={statusFilter}
             onChange={(nextValue) => setStatusFilter(nextValue as ManageStatusFilter)}
             options={statusFilterOptions}
-            buttonClassName="h-11 rounded-lg"
             ariaLabel={t("pages.manage.status")}
           />
         </div>
@@ -271,16 +278,23 @@ export function ManageClient() {
           <span>{t("pages.manage.sortedBy")}</span>
         </div>
         <div className="overflow-x-auto rounded-[18px] border border-border bg-surface">
-          <table className="w-full min-w-[1060px] border-collapse text-sm">
+          <table className="w-full min-w-[980px] table-fixed border-collapse text-sm text-app-card-foreground">
+            <colgroup>
+              <col className="w-[54%]" />
+              <col className="w-[160px]" />
+              <col className="w-[92px]" />
+              <col className="w-[76px]" />
+              <col className="w-[112px]" />
+              <col className="w-[124px]" />
+            </colgroup>
             <thead>
-              <tr className="border-b border-border bg-background/70 text-left text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <tr className="border-b border-border bg-background/70 text-left text-xs font-semibold uppercase tracking-[0.12em] text-app-card-muted">
                 <th className="px-4 py-3">{t("pages.manage.tool")}</th>
-                <th className="px-4 py-3">{t("pages.manage.type")}</th>
                 <th className="px-4 py-3">{t("pages.manage.tags")}</th>
-                <th className="px-4 py-3">{t("pages.manage.created")}</th>
-                <th className="px-4 py-3">{t("pages.manage.order")}</th>
-                <th className="px-4 py-3">{t("pages.manage.status")}</th>
-                <th className="px-4 py-3 text-right">{t("pages.manage.actions")}</th>
+                <th className="whitespace-nowrap px-4 py-3">{t("pages.manage.created")}</th>
+                <th className="whitespace-nowrap px-4 py-3">{t("pages.manage.order")}</th>
+                <th className="whitespace-nowrap px-4 py-3">{t("pages.manage.status")}</th>
+                <th className="whitespace-nowrap px-4 py-3">{t("pages.manage.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -291,36 +305,31 @@ export function ManageClient() {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                         <CardIcon name={card.icon} />
                       </div>
                       <div className="min-w-0">
                         <div className="truncate font-semibold">{card.name}</div>
-                        <div className="truncate text-xs text-muted-foreground">{card.sourceDomain || card.url}</div>
+                        <div className="truncate text-xs text-app-card-muted">{card.sourceDomain || card.url}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-lg bg-background/70 px-2 py-1 text-xs font-semibold text-muted-foreground">
-                      {getCardTypeLabel(card.type)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex max-w-[260px] flex-wrap gap-1.5">
+                    <div className="flex max-w-full flex-nowrap gap-1.5 overflow-hidden">
                       {card.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="rounded-lg bg-background/70 px-2 py-1 text-xs text-muted-foreground">
+                        <span key={tag} className="max-w-[86px] truncate rounded-lg bg-accent-soft px-2 py-1 text-xs text-app-card-muted">
                           {tag}
                         </span>
                       ))}
-                      {card.tags.length > 3 ? <span className="text-xs text-muted-foreground">+{card.tags.length - 3}</span> : null}
+                      {card.tags.length > 3 ? <span className="shrink-0 text-xs text-app-card-muted">+{card.tags.length - 3}</span> : null}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{dateFormatter.format(new Date(card.createdAt))}</td>
-                  <td className="px-4 py-3 font-semibold tabular-nums">{card.sortOrder}</td>
-                  <td className="px-4 py-3">
+                  <td className="whitespace-nowrap px-4 py-3 text-app-card-muted">{dateFormatter.format(new Date(card.createdAt))}</td>
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">{card.sortOrder}</td>
+                  <td className="whitespace-nowrap px-4 py-3">
                     <StatusPill card={card} t={t} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex justify-end gap-1">
                       <button className={manageActionButton} onClick={() => setDialogCard(card)} aria-label={t("toolCard.edit")}>
                         <Pencil size={16} />
@@ -341,13 +350,22 @@ export function ManageClient() {
               ))}
               {!filteredCards.length ? (
                 <tr>
-                  <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={7}>
+                  <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={6}>
                     {t("pages.manage.empty")}
                   </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-[#EEECE5] pt-4 text-sm">
+          {statItems.map((item) => (
+            <div key={item.key} className="flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full ${item.markerClass}`} aria-hidden="true" />
+              <span className="font-medium text-muted-foreground">{item.label}</span>
+              <span className="font-semibold tabular-nums text-foreground">{statValues[item.key]}</span>
+            </div>
+          ))}
         </div>
       </section>
       {dialogCard !== undefined ? (
@@ -357,6 +375,8 @@ export function ManageClient() {
           onSubmit={saveCard}
           onDelete={dialogCard ? deleteCardFromDialog : undefined}
         />
+      ) : null}
+        </>
       ) : null}
     </div>
   );

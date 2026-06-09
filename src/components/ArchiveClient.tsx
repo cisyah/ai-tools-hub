@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CardDialog } from "@/components/CardDialog";
 import { CardGrid } from "@/components/CardGrid";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { FilterBar, type FilterState } from "@/components/FilterBar";
 import { PageTitle } from "@/components/PageTitle";
 import { useTranslation } from "@/components/LocaleProvider";
@@ -31,6 +32,8 @@ export function ArchiveClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dialogCard, setDialogCard] = useState<Card | null | undefined>(undefined);
+  const [deleteCardTarget, setDeleteCardTarget] = useState<Card | null>(null);
+  const [deletingCard, setDeletingCard] = useState(false);
   const { showToast } = useToast();
 
   async function refreshCards() {
@@ -57,7 +60,6 @@ export function ArchiveClient() {
   const filteredCards = useMemo(
     () =>
       cards.filter((card) => {
-        if (filters.filterType && card.type !== filters.filterType) return false;
         if (filters.favorite === "favorite" && !card.isFavorite) return false;
         if (filters.favorite === "normal" && card.isFavorite) return false;
         if (!matchesSearch(card, filters.searchQuery.trim())) return false;
@@ -68,7 +70,6 @@ export function ArchiveClient() {
 
   const statusCounts = useMemo(() => {
     const baseCards = cards.filter((card) => {
-      if (filters.filterType && card.type !== filters.filterType) return false;
       if (!matchesSearch(card, filters.searchQuery.trim())) return false;
       return filters.filterTags.every((tag) => card.tags.includes(tag));
     });
@@ -78,7 +79,7 @@ export function ArchiveClient() {
       favorite: baseCards.filter((card) => card.isFavorite).length,
       normal: baseCards.filter((card) => !card.isFavorite).length,
     };
-  }, [cards, filters.filterTags, filters.filterType, filters.searchQuery]);
+  }, [cards, filters.filterTags, filters.searchQuery]);
 
   async function saveCard(input: CardInput) {
     if (!dialogCard) return;
@@ -93,9 +94,15 @@ export function ArchiveClient() {
   }
 
   async function deleteCard(card: Card) {
+    setDeletingCard(true);
     const response = await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
-    if (!response.ok) throw new Error(await parseApiError(response, t));
+    if (!response.ok) {
+      setDeletingCard(false);
+      throw new Error(await parseApiError(response, t));
+    }
     setCards((current) => current.filter((item) => item.id !== card.id));
+    setDeleteCardTarget(null);
+    setDeletingCard(false);
     showToast({ message: t("toast.deleted", { name: card.name }) });
   }
 
@@ -106,7 +113,7 @@ export function ArchiveClient() {
         title={t("nav.archive")}
         description={t("pages.archive.description")}
       />
-      <FilterBar filters={filters} tags={tags} statusCounts={statusCounts} onChange={setFilters} />
+      <FilterBar filters={filters} tags={tags} statusCounts={statusCounts} showFavoriteFilter={false} onChange={setFilters} />
       {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       {!loading && !error ? (
@@ -144,12 +151,7 @@ export function ArchiveClient() {
             setCards((current) => current.map((item) => (item.id === card.id ? { ...item, isFavorite: nextFavorite } : item)));
           }}
           onEdit={(card) => setDialogCard(card)}
-          onDelete={async (card) => {
-            const confirmed = window.confirm(t("cardDialog.deleteConfirm", { name: card.name }));
-            if (!confirmed) return;
-            await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
-            setCards((current) => current.filter((item) => item.id !== card.id));
-          }}
+          onDelete={(card) => setDeleteCardTarget(card)}
         />
       ) : null}
       {dialogCard !== undefined ? (
@@ -158,6 +160,18 @@ export function ArchiveClient() {
           onClose={() => setDialogCard(undefined)}
           onSubmit={saveCard}
           onDelete={dialogCard ? deleteCard : undefined}
+        />
+      ) : null}
+      {deleteCardTarget ? (
+        <ConfirmDialog
+          title={t("common.confirmDelete")}
+          message={t("cardDialog.deleteConfirm", { name: deleteCardTarget.name })}
+          confirmLabel={deletingCard ? t("common.deleting") : t("common.delete")}
+          cancelLabel={t("common.cancel")}
+          destructive
+          busy={deletingCard}
+          onCancel={() => setDeleteCardTarget(null)}
+          onConfirm={() => deleteCard(deleteCardTarget)}
         />
       ) : null}
     </div>

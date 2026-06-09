@@ -109,12 +109,12 @@ export function ListCardPicker({ listName, cards, onClose, onConfirm }: ListCard
                       type="button"
                       onClick={() => toggle(card.id)}
                       className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition ${
-                        checked ? "border-accent bg-surface-strong" : "border-border hover:bg-surface-strong"
+                        checked ? "border-primary bg-surface-strong" : "border-border hover:bg-surface-strong"
                       }`}
                     >
                       <span
                         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
-                          checked ? "border-accent bg-accent text-accent-foreground" : "border-border"
+                          checked ? "border-primary bg-primary text-primary-foreground" : "border-border"
                         }`}
                       >
                         {checked ? <Check size={13} strokeWidth={3} /> : null}
@@ -151,7 +151,7 @@ export function ListCardPicker({ listName, cards, onClose, onConfirm }: ListCard
               type="button"
               disabled={!selectedIds.size || saving}
               onClick={handleConfirm}
-              className="h-10 rounded-md bg-accent px-5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+              className="h-10 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover hover:text-primary-hover-foreground disabled:opacity-60"
             >
               {saving ? t("pages.listDetail.pickerAdding") : t("pages.listDetail.pickerAdd")}
             </button>

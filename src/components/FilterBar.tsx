@@ -2,7 +2,6 @@
 
 import { Check, Search, Tags, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { CardTypeSelect } from "@/components/CardTypeSelect";
 import { useTranslation } from "@/components/LocaleProvider";
 import type { CardType, FavoriteFilter, TagCount } from "@/lib/types";
 
@@ -21,13 +20,17 @@ type FilterBarProps = {
     favorite: number;
     normal: number;
   };
+  showFavoriteFilter?: boolean;
   onChange: (filters: FilterState) => void;
 };
 
-export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarProps) {
+export function FilterBar({ filters, tags, statusCounts, showFavoriteFilter = true, onChange }: FilterBarProps) {
   const { t } = useTranslation();
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const tagMenuRef = useRef<HTMLDivElement>(null);
+  const gridColumns = showFavoriteFilter
+    ? "xl:grid-cols-[minmax(280px,1fr)_132px_auto_auto]"
+    : "xl:grid-cols-[minmax(280px,1fr)_132px_auto]";
 
   useEffect(() => {
     if (!tagMenuOpen) return;
@@ -62,8 +65,8 @@ export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarPr
   }
 
   return (
-    <section className="space-y-2 border-y border-border py-2.5">
-      <div className="grid gap-2 xl:grid-cols-[minmax(280px,1fr)_180px_132px_auto_auto]">
+    <section className="space-y-2 border-b border-[#EEECE5] py-2.5">
+      <div className={`grid gap-2 ${gridColumns}`}>
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
           <input
@@ -73,13 +76,6 @@ export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarPr
             placeholder={t("filter.searchPlaceholder")}
           />
         </label>
-        <CardTypeSelect
-          value={filters.filterType}
-          onChange={(nextValue) => onChange({ ...filters, filterType: nextValue })}
-          includeAllOption
-          allOptionLabel={t("filter.allTypes")}
-          ariaLabel={t("filter.typeAria")}
-        />
         <div ref={tagMenuRef} className="relative">
           <button
             type="button"
@@ -87,7 +83,7 @@ export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarPr
             aria-expanded={tagMenuOpen}
             className={`flex h-10 w-full items-center justify-between gap-2 rounded-md border px-3 text-sm transition ${
               filters.filterTags.length
-                ? "border-accent bg-primary text-primary-foreground"
+                ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-surface text-muted-foreground hover:border-foreground/20 hover:text-foreground"
             }`}
             onClick={() => setTagMenuOpen((current) => !current)}
@@ -122,25 +118,27 @@ export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarPr
             </div>
           ) : null}
         </div>
-        <div className="flex h-10 rounded-md border border-border bg-surface p-1">
-          {[
-            { value: "", label: t("filter.all"), count: statusCounts?.all },
-            { value: "favorite", label: t("filter.favourite"), count: statusCounts?.favorite },
-            { value: "normal", label: t("filter.normal"), count: statusCounts?.normal },
-          ].map((item) => (
-            <button
-              key={item.value || "all"}
-              className={`flex min-w-16 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition ${
-                filters.favorite === item.value ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
-              }`}
-              onClick={() => onChange({ ...filters, favorite: item.value as FavoriteFilter })}
-            >
-              <span>{item.label}</span>
-              {typeof item.count === "number" ? <span className="text-current/60">{item.count}</span> : null}
-            </button>
-          ))}
-        </div>
-        {filters.filterTags.length || filters.searchQuery || filters.filterType || filters.favorite ? (
+        {showFavoriteFilter ? (
+          <div className="flex h-10 rounded-md border border-border bg-surface p-1">
+            {[
+              { value: "", label: t("filter.all"), count: statusCounts?.all },
+              { value: "favorite", label: t("filter.favourite"), count: statusCounts?.favorite },
+              { value: "normal", label: t("filter.normal"), count: statusCounts?.normal },
+            ].map((item) => (
+              <button
+                key={item.value || "all"}
+                className={`flex min-w-16 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition ${
+                  filters.favorite === item.value ? "bg-accent-soft text-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
+                }`}
+                onClick={() => onChange({ ...filters, favorite: item.value as FavoriteFilter })}
+              >
+                <span>{item.label}</span>
+                {typeof item.count === "number" ? <span className="text-current/60">{item.count}</span> : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {filters.filterTags.length || filters.searchQuery || filters.favorite ? (
           <button
             className="flex h-10 items-center justify-center gap-1 rounded-md border border-border bg-surface px-3 text-xs text-muted-foreground transition hover:border-foreground/20 hover:text-foreground"
             onClick={() => onChange({ searchQuery: "", filterType: "", filterTags: [], favorite: "" })}

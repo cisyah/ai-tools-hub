@@ -1,25 +1,27 @@
 "use client";
 
-import { ArrowRight, ExternalLink, Info, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { ExternalLink, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { CardTypesManager } from "@/components/CardTypesManager";
+import { CardPreviewVisual } from "@/components/CardPreviewVisual";
+import { NameCreateDialog } from "@/components/NameCreateDialog";
 import { PageTitle } from "@/components/PageTitle";
 import { useTranslation } from "@/components/LocaleProvider";
 import { useToast } from "@/components/ToastProvider";
 import { parseApiError, translateApiError, translateEnglish } from "@/lib/i18n";
-import type { TagCount } from "@/lib/types";
+import type { Card, TagCount } from "@/lib/types";
 
-export function TagsClient() {
+type TagManagerPanelProps = {
+  showTitle?: boolean;
+};
+
+export function TagManagerPanel({ showTitle = false }: TagManagerPanelProps) {
   const { t } = useTranslation();
-  const searchParams = useSearchParams();
-  const activeTab = searchParams.get("tab") === "types" ? "types" : "tags";
   const [tags, setTags] = useState<TagCount[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [renameValue, setRenameValue] = useState("");
-  const [newTagName, setNewTagName] = useState("");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -33,8 +35,19 @@ export function TagsClient() {
     setTags(payload.tags || []);
   }
 
+  async function refreshCards() {
+    const response = await fetch("/api/cards?includeArchived=1");
+    if (!response.ok) throw new Error(await parseApiError(response, t));
+    const payload = await response.json();
+    setCards(payload.cards || []);
+  }
+
+  async function refreshTagData() {
+    await Promise.all([refreshTags(), refreshCards()]);
+  }
+
   useEffect(() => {
-    refreshTags()
+    refreshTagData()
       .catch(() => setError(t("pages.tags.loadError")))
       .finally(() => setLoading(false));
   }, [t]);
@@ -55,8 +68,24 @@ export function TagsClient() {
     [selectedTag, tags],
   );
 
-  async function addTag() {
-    const name = newTagName.trim();
+  const selectedCards = useMemo(
+    () => (selected ? cards.filter((card) => card.tags.includes(selected.name)) : []),
+    [cards, selected],
+  );
+
+  useEffect(() => {
+    if (!selected) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedTag("");
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selected]);
+
+  async function addTag(inputName: string) {
+    const name = inputName.trim();
     if (!name) {
       setError(t("errors.tagNameRequired"));
       return;
@@ -74,12 +103,12 @@ export function TagsClient() {
     setSaving(false);
 
     if (!response.ok) {
-      setError(await parseApiError(response, t));
-      return;
+      const message = await parseApiError(response, t);
+      setError(message);
+      throw new Error(message);
     }
 
     await refreshTags();
-    setNewTagName("");
     setSelectedTag(name);
     showToast({ message: t("toast.tagAdded", { name }) });
   }
@@ -109,7 +138,7 @@ export function TagsClient() {
       return;
     }
 
-    await refreshTags();
+    await refreshTagData();
     setSelectedTag(newName);
     showToast({ message: t("toast.tagRenamed", { oldName: selected.name, newName }) });
   }
@@ -129,7 +158,7 @@ export function TagsClient() {
       return;
     }
 
-    await refreshTags();
+    await refreshTagData();
     setSelectedTag("");
     showToast({ message: t("toast.tagRemoved", { name: selected.name }) });
   }
@@ -137,157 +166,152 @@ export function TagsClient() {
   const renameDirty = selected ? renameValue.trim() !== selected.name : false;
 
   return (
-    <div className="page-shell space-y-5">
-      <PageTitle
-        eyebrow={translateEnglish("pages.tags.eyebrow")}
-        title={t("nav.tags")}
-        description={t("pages.tags.pageDescription")}
-      />
-
-      <div className="flex gap-2">
-        <Link
-          href="/tags"
-          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-            activeTab === "tags" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
-          }`}
-        >
-          {t("pages.tags.tabTags")}
-        </Link>
-        <Link
-          href="/tags?tab=types"
-          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-            activeTab === "types" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
-          }`}
-        >
-          {t("pages.tags.tabTypes")}
-        </Link>
-      </div>
-
-      {activeTab === "types" ? <CardTypesManager /> : null}
-
-      {activeTab === "tags" ? (
-      <>
-      <div className="flex gap-3 rounded-[18px] border border-border bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
-        <Info size={18} className="mt-0.5 shrink-0 text-accent" />
-        <div className="space-y-1">
-          <p>
-            <span className="mr-1.5 font-semibold text-foreground">{t("pages.tags.howToAddTitle")}</span>
-            {t("pages.tags.howToAddBody")}
-          </p>
-          <p>
-            <span className="mr-1.5 font-semibold text-foreground">{t("pages.tags.whatCanDoTitle")}</span>
-            {t("pages.tags.whatCanDoBody")}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      {showTitle ? (
+        <PageTitle
+          eyebrow={translateEnglish("pages.tags.eyebrow")}
+          title={t("nav.tags")}
+          description={t("pages.tags.pageDescription")}
+        />
+      ) : null}
 
       {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{translateApiError(error, t)}</div> : null}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          value={newTagName}
-          onChange={(event) => setNewTagName(event.target.value)}
-          placeholder={t("pages.tags.newPlaceholder")}
-          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 text-sm outline-none transition focus:border-ring"
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void addTag();
-          }}
-        />
-        <button
-          type="button"
-          disabled={saving || !newTagName.trim()}
-          onClick={() => void addTag()}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-foreground disabled:opacity-50"
-        >
-          <Plus size={16} />
-          {t("pages.tags.addTag")}
-        </button>
-      </div>
-
-      {tags.length ? (
-        <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-          <section className="space-y-3">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-11 w-full rounded-lg border border-border bg-surface pl-10 pr-4 text-sm outline-none transition focus:border-ring"
-                placeholder={t("pages.tags.searchPlaceholder")}
-              />
-            </label>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{t("pages.tags.showing", { filtered: filteredTags.length, total: tags.length })}</span>
-              <span>{t("pages.tags.sortedBy")}</span>
+      <section className="space-y-3">
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <label className="relative block min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="h-11 w-full rounded-lg border border-border bg-surface pl-10 pr-4 text-sm outline-none transition focus:border-ring"
+              placeholder={t("pages.tags.searchPlaceholder")}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setAddDialogOpen(true)}
+            className="flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover hover:text-primary-hover-foreground"
+          >
+            <Plus size={17} aria-hidden="true" />
+            {t("pages.tags.addTag")}
+          </button>
+        </div>
+        {tags.length ? (
+          <>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{t("pages.tags.showing", { filtered: filteredTags.length, total: tags.length })}</span>
+            <span>{t("pages.tags.sortedBy")}</span>
+          </div>
+          {filteredTags.length ? (
+            <div className="flex flex-wrap gap-2">
+              {filteredTags.map((tag) => {
+                const active = selectedTag === tag.name;
+                return (
+                  <button
+                    key={tag.name}
+                    type="button"
+                    className={`inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                      active
+                        ? "border-primary/30 bg-accent-soft text-foreground shadow-sm"
+                        : "border-border bg-background/70 text-foreground hover:border-ring hover:bg-surface-strong"
+                    }`}
+                    onClick={() => setSelectedTag(tag.name)}
+                  >
+                    <span className="min-w-0 truncate">{tag.name}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${
+                        active ? "bg-background/70 text-foreground" : "bg-surface-strong text-muted-foreground"
+                      }`}
+                    >
+                      {tag.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="overflow-x-auto rounded-[18px] border border-border bg-surface">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-background/70 text-left text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    <th className="px-4 py-3">{t("pages.tags.tagColumn")}</th>
-                    <th className="px-4 py-3 text-right">{t("pages.tags.countColumn")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTags.map((tag) => {
-                    const active = selectedTag === tag.name;
-                    return (
-                      <tr
-                        key={tag.name}
-                        className={`cursor-pointer border-b border-border transition last:border-b-0 hover:bg-background ${active ? "bg-accent-soft/50" : ""}`}
-                        onClick={() => setSelectedTag(tag.name)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`rounded-lg px-2.5 py-1 text-sm font-semibold ${active ? "bg-primary text-primary-foreground" : "bg-surface-strong text-foreground"}`}
-                            >
-                              {tag.name}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-muted-foreground">{tag.count}</td>
-                      </tr>
-                    );
-                  })}
-                  {!filteredTags.length ? (
-                    <tr>
-                      <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={2}>
-                        {t("pages.tags.noMatch")}
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          ) : (
+            <div className="px-1 py-6 text-sm text-muted-foreground">{t("pages.tags.noMatch")}</div>
+          )}
+          </>
+        ) : null}
+      </section>
 
-          <aside className="rounded-[22px] border border-border bg-surface p-5">
-            {selected ? (
-              <div className="space-y-5">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("pages.tags.selected")}</div>
-                  <div className="mt-2 break-words text-2xl font-bold">{selected.name}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">{t("pages.tags.cardsUsing", { count: selected.count })}</div>
+      {selected ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <div className="flex h-[88vh] max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-2xl">
+            <div className="flex items-start justify-between gap-3 px-6 pb-3 pt-6">
+              <div className="min-w-0 space-y-1">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("pages.tags.selected")}</div>
+                <h2 className="break-words text-lg font-semibold">{selected.name}</h2>
+                <p className="text-sm text-muted-foreground">{t("pages.tags.cardsUsing", { count: selected.count })}</p>
+              </div>
+              <button
+                type="button"
+                className="rounded-md p-2 hover:bg-surface-strong"
+                onClick={() => setSelectedTag("")}
+                aria-label={t("common.close")}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto px-6 pb-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <section className="min-h-0">
+                <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-semibold uppercase tracking-[0.16em]">{t("pages.tags.containedCards")}</span>
+                  <span>{selectedCards.length}</span>
                 </div>
+                {selectedCards.length ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {selectedCards.map((card) => (
+                      <a
+                        key={card.id}
+                        href={card.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group overflow-hidden rounded-lg border-[0.5px] border-app-card-border bg-app-card-surface text-left text-app-card-foreground transition duration-200 hover:-translate-y-0.5 hover:border-app-card-foreground/25"
+                      >
+                        <div className="relative">
+                          <CardPreviewVisual
+                            previewUrl={card.previewUrl}
+                            previewPosition={card.previewPosition}
+                            icon={card.icon}
+                            imageClassName="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                          />
+                          {card.isArchived ? (
+                            <span className="absolute right-3 top-3 rounded-full bg-surface/90 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground shadow-sm">
+                              {t("status.archived")}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="px-4 pb-4 pt-4">
+                          <div className="truncate text-base font-bold leading-tight tracking-normal text-[#454545]">{card.name}</div>
+                          <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-app-card-muted">{card.description}</p>
+                        </div>
+                        <div className="flex items-center gap-2 border-t border-[#EEECE5] bg-app-card-surface px-3 py-2 text-xs text-app-card-muted">
+                          <span className="truncate font-normal text-app-card-muted">{card.sourceDomain || card.url}</span>
+                          <ExternalLink size={14} className="shrink-0" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-10 text-center text-sm text-muted-foreground">
+                    {t("pages.tags.noCards")}
+                  </div>
+                )}
+              </section>
 
-                <Link
-                  href={`/?tag=${encodeURIComponent(selected.name)}`}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-sm font-semibold transition hover:bg-muted"
-                >
-                  <ExternalLink size={16} />
-                  {t("pages.tags.viewCards")}
-                  <ArrowRight size={14} className="text-muted-foreground" />
-                </Link>
-
-                <div className="space-y-2 border-t border-border pt-4">
+              <aside className="space-y-5 rounded-[18px] border border-border bg-background/70 p-4">
+                <div className="space-y-2">
                   <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("pages.tags.rename")}</div>
                   <div className="flex gap-2">
                     <input
                       value={renameValue}
                       onChange={(event) => setRenameValue(event.target.value)}
-                      className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-ring"
+                      className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-sm outline-none transition focus:border-ring"
                       placeholder={t("pages.tags.newTagName")}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" && renameDirty) void saveRename();
@@ -339,15 +363,9 @@ export function TagsClient() {
                     </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="flex min-h-[280px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-                <TagsPlaceholder />
-                <p className="font-medium text-foreground">{t("pages.tags.selectHint")}</p>
-                <p className="max-w-[220px] text-xs leading-5">{t("pages.tags.selectDesc")}</p>
-              </div>
-            )}
-          </aside>
+              </aside>
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -356,17 +374,25 @@ export function TagsClient() {
           {t("pages.tags.empty")}
         </div>
       ) : null}
-      </>
+      {addDialogOpen ? (
+        <NameCreateDialog
+          title={t("pages.tags.addDialogTitle")}
+          inputLabel={t("pages.tags.newTagName")}
+          placeholder={t("pages.tags.namePlaceholder")}
+          submitLabel={t("pages.tags.addTag")}
+          saving={saving}
+          onClose={() => setAddDialogOpen(false)}
+          onSubmit={addTag}
+        />
       ) : null}
     </div>
   );
 }
 
-function TagsPlaceholder() {
+export function TagsClient() {
   return (
-    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true" className="text-muted-foreground/40">
-      <rect x="4" y="10" width="32" height="8" rx="4" stroke="currentColor" strokeWidth="2" />
-      <rect x="4" y="22" width="20" height="8" rx="4" stroke="currentColor" strokeWidth="2" />
-    </svg>
+    <div className="page-shell">
+      <TagManagerPanel showTitle />
+    </div>
   );
 }

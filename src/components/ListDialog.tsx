@@ -1,11 +1,11 @@
 "use client";
 
 import { Folder, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { CardTypeSelect } from "@/components/CardTypeSelect";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/components/LocaleProvider";
 import { SelectMenu } from "@/components/SelectMenu";
 import { useListKindLabels } from "@/lib/i18n/hooks";
+import { composeListDisplayName, listEmojiOptions, splitListDisplayName } from "@/lib/list-display";
 import { defaultListFilters, type ListInput, type ListKind, type SavedList } from "@/lib/types";
 
 type ListDialogProps = {
@@ -40,12 +40,37 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
   const [tagsText, setTagsText] = useState(() => toInput(list).filters.tags.join(", "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  const listTitle = splitListDisplayName(input.name);
 
   useEffect(() => {
     const nextInput = toInput(list);
     setInput(nextInput);
     setTagsText(nextInput.filters.tags.join(", "));
+    setEmojiPickerOpen(false);
   }, [list]);
+
+  useEffect(() => {
+    if (!emojiPickerOpen) return;
+
+    function closeEmojiPicker(event: MouseEvent) {
+      if (emojiPickerRef.current?.contains(event.target as Node)) return;
+      setEmojiPickerOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setEmojiPickerOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeEmojiPicker);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeEmojiPicker);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [emojiPickerOpen]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,7 +88,8 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
       );
       await onSubmit({
         ...input,
-        filters: input.kind === "smart" ? { ...input.filters, tags } : defaultListFilters,
+        name: composeListDisplayName(listTitle.emoji, listTitle.title),
+        filters: input.kind === "smart" ? { ...input.filters, type: "", tags } : defaultListFilters,
       });
       onClose();
     } catch (err) {
@@ -84,13 +110,59 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
         </div>
         <div className="grid gap-5 px-6 py-4">
           <div className="grid gap-2 sm:grid-cols-[44px_1fr]">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-surface-strong text-muted-foreground">
-              <Folder size={22} />
+            <div ref={emojiPickerRef} className="relative">
+              <button
+                type="button"
+                className={`flex h-10 w-10 items-center justify-center rounded-md border text-lg transition ${
+                  emojiPickerOpen ? "border-primary bg-accent-soft" : "border-border bg-surface-strong text-muted-foreground hover:bg-surface"
+                }`}
+                onClick={() => setEmojiPickerOpen((open) => !open)}
+                aria-label={t("listDialog.emoji")}
+                aria-expanded={emojiPickerOpen}
+              >
+                {listTitle.emoji || <Folder size={22} />}
+              </button>
+              {emojiPickerOpen ? (
+                <div className="absolute left-0 top-12 z-50 w-[276px] rounded-lg border border-border bg-surface p-2 shadow-airbnb">
+                  <div className="grid max-h-56 grid-cols-8 gap-1 overflow-y-auto pr-1">
+                    {listEmojiOptions.map((emoji) => {
+                      const active = listTitle.emoji === emoji;
+
+                      return (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className={`flex h-8 w-8 items-center justify-center rounded-md text-lg transition ${
+                            active ? "bg-accent-soft ring-1 ring-primary" : "hover:bg-surface-strong"
+                          }`}
+                          onClick={() => {
+                            setInput({ ...input, name: composeListDisplayName(active ? "" : emoji, listTitle.title) });
+                            setEmojiPickerOpen(false);
+                          }}
+                          aria-pressed={active}
+                        >
+                          {emoji}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-2 h-8 w-full rounded-md text-sm text-muted-foreground transition hover:bg-surface-strong hover:text-foreground"
+                    onClick={() => {
+                      setInput({ ...input, name: composeListDisplayName("", listTitle.title) });
+                      setEmojiPickerOpen(false);
+                    }}
+                  >
+                    {t("listDialog.noEmoji")}
+                  </button>
+                </div>
+              ) : null}
             </div>
             <input
               required
-              value={input.name}
-              onChange={(event) => setInput({ ...input, name: event.target.value })}
+              value={listTitle.title}
+              onChange={(event) => setInput({ ...input, name: composeListDisplayName(listTitle.emoji, event.target.value) })}
               placeholder={t("listDialog.namePlaceholder")}
               className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
             />
@@ -105,25 +177,14 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
               className="w-full resize-none rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-ring"
             />
           </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <span className="text-sm font-semibold">{t("listDialog.listType")}</span>
-              <SelectMenu
-                value={input.kind}
-                onChange={(nextValue) => setInput({ ...input, kind: nextValue as ListKind })}
-                options={(["manual", "smart"] as const).map((kind) => ({ value: kind, label: listKindLabels[kind] }))}
-                ariaLabel={t("listDialog.typeAria")}
-              />
-            </div>
-            <label className="space-y-1.5">
-              <span className="text-sm font-semibold">{t("listDialog.sortOrder")}</span>
-              <input
-                type="number"
-                value={input.sortOrder}
-                onChange={(event) => setInput({ ...input, sortOrder: Number(event.target.value) })}
-                className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
-              />
-            </label>
+          <div className="space-y-1.5">
+            <span className="text-sm font-semibold">{t("listDialog.listType")}</span>
+            <SelectMenu
+              value={input.kind}
+              onChange={(nextValue) => setInput({ ...input, kind: nextValue as ListKind })}
+              options={(["manual", "smart"] as const).map((kind) => ({ value: kind, label: listKindLabels[kind] }))}
+              ariaLabel={t("listDialog.typeAria")}
+            />
           </div>
           {input.kind === "smart" ? (
             <div className="grid gap-3 rounded-md border border-border bg-surface-strong p-3 sm:grid-cols-2">
@@ -135,16 +196,6 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
                   className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
                 />
               </label>
-              <div className="space-y-1.5">
-                <span className="text-sm font-medium">{t("listDialog.type")}</span>
-                <CardTypeSelect
-                  value={input.filters.type}
-                  onChange={(nextValue) => setInput({ ...input, filters: { ...input.filters, type: nextValue } })}
-                  includeAllOption
-                  allOptionLabel={t("filter.allTypes")}
-                  ariaLabel={t("filter.typeAria")}
-                />
-              </div>
               <div className="space-y-1.5">
                 <span className="text-sm font-medium">{t("listDialog.archived")}</span>
                 <SelectMenu
@@ -195,7 +246,7 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
           <button
             type="submit"
             disabled={saving}
-            className="h-10 rounded-md bg-accent px-5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+            className="h-10 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hover hover:text-primary-hover-foreground disabled:opacity-60"
           >
             {saving ? t("common.saving") : list ? t("common.save") : t("common.create")}
           </button>

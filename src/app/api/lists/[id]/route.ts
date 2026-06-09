@@ -1,5 +1,5 @@
 import { error, ok, serverError } from "@/lib/api";
-import { deleteList, getCardsForList, getList, updateList } from "@/lib/queries/lists";
+import { deleteList, deleteListWithCards, getCardsForList, getList, updateList } from "@/lib/queries/lists";
 import { parseListInput } from "@/lib/validation";
 
 type RouteContext = {
@@ -30,11 +30,17 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const deleteCards = new URL(request.url).searchParams.get("deleteCards") === "1";
+    if (deleteCards) {
+      const result = await deleteListWithCards(id);
+      return ok({ ok: true, ...result });
+    }
+
     await deleteList(id);
-    return ok({ ok: true });
+    return ok({ ok: true, deletedCards: 0 });
   } catch (err) {
     return serverError(err);
   }

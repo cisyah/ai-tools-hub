@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>存入 AI Tools Hub</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="icons/icon48.png" alt="" width="22" height="22" />
+        <span>AI Tools Hub</span>
+      </div>
+      <button id="open-options" class="link-btn" type="button" title="设置">设置</button>
+    </header>
+
+    <main id="form" class="form" hidden>
+      <label class="field">
+        <span class="label">名称 <em>*</em></span>
+        <input id="name" type="text" placeholder="卡片名称" />
+      </label>
+
+      <label class="field">
+        <span class="label">简介 <small id="desc-count">0/120</small></span>
+        <textarea id="description" rows="2" maxlength="120" placeholder="一句话描述"></textarea>
+      </label>
+
+      <label class="field">
+        <span class="label">链接 <em>*</em></span>
+        <input id="url" type="text" placeholder="https://..." />
+      </label>
+
+      <div class="row">
+        <label class="field grow">
+          <span class="label">类型</span>
+          <select id="type"></select>
+        </label>
+        <label class="field check">
+          <input id="favorite" type="checkbox" />
+          <span>星标</span>
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="label">标签 <small>逗号分隔</small></span>
+        <input id="tags" type="text" placeholder="ai, 设计, 工具" />
+      </label>
+
+      <div class="preview-row">
+        <div class="preview-thumb" id="preview-thumb" aria-hidden="true"></div>
+        <button id="fetch-preview" class="ghost-btn" type="button">抓取预览图</button>
+      </div>
+
+      <div id="message" class="message" hidden></div>
+
+      <div class="actions">
+        <button id="save" class="primary-btn" type="button">保存到 Hub</button>
+      </div>
+    </main>
+
+    <section id="setup" class="setup" hidden>
+      <p class="setup-title">还没配置服务器</p>
+      <p class="setup-text">请先设置 AI Tools Hub 的服务器地址和 API Token。</p>
+      <button id="go-options" class="primary-btn" type="button">前往设置</button>
+    </section>
+
+    <div id="loading" class="loading">读取页面信息…</div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
