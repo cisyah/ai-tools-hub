@@ -28,7 +28,9 @@
 
 ## Screenshots
 
-> 📸 TODO: 添加截图
+| Overview | Stats | Manage |
+|----------|-------|--------|
+| ![Overview](docs/screenshots/overview.png) | ![Stats](docs/screenshots/stats.png) | ![Manage](docs/screenshots/manage.png) |
 
 ## Quick Start
 
