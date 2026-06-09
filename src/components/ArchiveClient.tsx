@@ -5,7 +5,9 @@ import { CardDialog } from "@/components/CardDialog";
 import { CardGrid } from "@/components/CardGrid";
 import { FilterBar, type FilterState } from "@/components/FilterBar";
 import { PageTitle } from "@/components/PageTitle";
+import { useTranslation } from "@/components/LocaleProvider";
 import { useToast } from "@/components/ToastProvider";
+import { parseApiError, translateEnglish } from "@/lib/i18n";
 import type { Card, CardInput, TagCount } from "@/lib/types";
 
 const defaultFilters: FilterState = {
@@ -21,12 +23,8 @@ function matchesSearch(card: Card, query: string) {
   return haystack.includes(query.toLowerCase());
 }
 
-async function parseApiError(response: Response) {
-  const payload = await response.json().catch(() => ({}));
-  return payload.error || "请求失败。";
-}
-
 export function ArchiveClient() {
+  const { t } = useTranslation();
   const [cards, setCards] = useState<Card[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
@@ -41,8 +39,8 @@ export function ArchiveClient() {
       fetch("/api/tags?includeArchived=1"),
     ]);
 
-    if (!cardsResponse.ok) throw new Error(await parseApiError(cardsResponse));
-    if (!tagsResponse.ok) throw new Error(await parseApiError(tagsResponse));
+    if (!cardsResponse.ok) throw new Error(await parseApiError(cardsResponse, t));
+    if (!tagsResponse.ok) throw new Error(await parseApiError(tagsResponse, t));
 
     const cardsPayload = await cardsResponse.json();
     const tagsPayload = await tagsResponse.json();
@@ -52,9 +50,9 @@ export function ArchiveClient() {
 
   useEffect(() => {
     refreshCards()
-      .catch(() => setError("加载归档失败，请确认数据库已初始化。"))
+      .catch(() => setError(t("pages.archive.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const filteredCards = useMemo(
     () =>
@@ -90,15 +88,26 @@ export function ArchiveClient() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
-    if (!response.ok) throw new Error(await parseApiError(response));
+    if (!response.ok) throw new Error(await parseApiError(response, t));
     await refreshCards();
+  }
+
+  async function deleteCard(card: Card) {
+    const response = await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
+    if (!response.ok) throw new Error(await parseApiError(response, t));
+    setCards((current) => current.filter((item) => item.id !== card.id));
+    showToast({ message: t("toast.deleted", { name: card.name }) });
   }
 
   return (
     <div className="page-shell space-y-5">
-      <PageTitle eyebrow="Archive" title="Archive" description="Archived cards stay out of the Tools view while keeping tags, notes, and open history." />
+      <PageTitle
+        eyebrow={translateEnglish("pages.archive.eyebrow")}
+        title={t("nav.archive")}
+        description={t("pages.archive.description")}
+      />
       <FilterBar filters={filters} tags={tags} statusCounts={statusCounts} onChange={setFilters} />
-      {loading ? <div className="text-sm text-muted-foreground">加载中...</div> : null}
+      {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       {!loading && !error ? (
         <CardGrid
@@ -113,8 +122,8 @@ export function ArchiveClient() {
             });
             setCards((current) => current.filter((item) => item.id !== card.id));
             showToast({
-              message: `已恢复 ${card.name}`,
-              actionLabel: "撤销",
+              message: t("toast.restored", { name: card.name }),
+              actionLabel: t("toast.undo"),
               onAction: async () => {
                 await fetch(`/api/cards/${card.id}`, {
                   method: "PATCH",
@@ -136,14 +145,21 @@ export function ArchiveClient() {
           }}
           onEdit={(card) => setDialogCard(card)}
           onDelete={async (card) => {
-            const confirmed = window.confirm(`确认删除「${card.name}」？`);
+            const confirmed = window.confirm(t("cardDialog.deleteConfirm", { name: card.name }));
             if (!confirmed) return;
             await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
             setCards((current) => current.filter((item) => item.id !== card.id));
           }}
         />
       ) : null}
-      {dialogCard !== undefined ? <CardDialog card={dialogCard} onClose={() => setDialogCard(undefined)} onSubmit={saveCard} /> : null}
+      {dialogCard !== undefined ? (
+        <CardDialog
+          card={dialogCard}
+          onClose={() => setDialogCard(undefined)}
+          onSubmit={saveCard}
+          onDelete={dialogCard ? deleteCard : undefined}
+        />
+      ) : null}
     </div>
   );
 }

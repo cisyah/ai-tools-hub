@@ -221,9 +221,17 @@ export async function recordOpenEvent(input: OpenEventInput): Promise<void> {
 }
 
 export async function listTagCounts(includeArchived = false): Promise<TagCount[]> {
-  const cards = await listCards(includeArchived);
+  const pool = getPool();
   const counts = new Map<string, number>();
 
+  const [registryRows] = await pool.query<Array<RowDataPacket & { name: string }>>(
+    "SELECT name FROM tag_registry",
+  );
+  for (const row of registryRows) {
+    counts.set(row.name, 0);
+  }
+
+  const cards = await listCards(includeArchived);
   for (const card of cards) {
     for (const tag of card.tags) {
       counts.set(tag, (counts.get(tag) || 0) + 1);
@@ -235,16 +243,39 @@ export async function listTagCounts(includeArchived = false): Promise<TagCount[]
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
+export async function createTag(name: string): Promise<void> {
+  const trimmedName = name.trim();
+  if (!trimmedName) throw new Error("标签名称不能为空。");
+
+  const existing = await listTagCounts(true);
+  if (existing.some((tag) => tag.name === trimmedName)) {
+    throw new Error("该标签已存在。");
+  }
+
+  const pool = getPool();
+  await pool.execute("INSERT INTO tag_registry (name) VALUES (?)", [trimmedName]);
+}
+
 export async function renameTag(oldName: string, newName: string): Promise<void> {
+  const trimmedNewName = newName.trim();
+  if (!trimmedNewName) throw new Error("标签名称不能为空。");
+
+  const existing = await listTagCounts(true);
+  if (existing.some((tag) => tag.name === trimmedNewName && oldName !== trimmedNewName)) {
+    throw new Error("该标签已存在。");
+  }
+
   const cards = await listCards(true);
   const pool = getPool();
 
   for (const card of cards) {
     if (!card.tags.includes(oldName)) continue;
 
-    const tags = Array.from(new Set(card.tags.map((tag) => (tag === oldName ? newName : tag))));
+    const tags = Array.from(new Set(card.tags.map((tag) => (tag === oldName ? trimmedNewName : tag))));
     await pool.execute("UPDATE cards SET tags = ? WHERE id = ?", [JSON.stringify(tags), card.id]);
   }
+
+  await pool.execute("UPDATE tag_registry SET name = ? WHERE name = ?", [trimmedNewName, oldName]);
 }
 
 export async function deleteTag(name: string): Promise<void> {
@@ -257,6 +288,8 @@ export async function deleteTag(name: string): Promise<void> {
     const tags = card.tags.filter((tag) => tag !== name);
     await pool.execute("UPDATE cards SET tags = ? WHERE id = ?", [JSON.stringify(tags), card.id]);
   }
+
+  await pool.execute("DELETE FROM tag_registry WHERE name = ?", [name]);
 }
 
 export async function getStats(): Promise<StatsSummary> {

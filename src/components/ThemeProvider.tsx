@@ -33,7 +33,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const savedLogoIcon = window.localStorage.getItem("ai-tools-hub.logoIcon");
     const savedSiteName = window.localStorage.getItem("ai-tools-hub.siteName");
     const savedTagline = window.localStorage.getItem("ai-tools-hub.tagline");
-    const nextTheme = isThemeId(savedTheme) ? savedTheme : defaultThemeId;
+    const migratedTheme = savedTheme === "butter" ? "pink" : savedTheme;
+    const nextTheme = isThemeId(migratedTheme) ? migratedTheme : defaultThemeId;
+    if (migratedTheme === "pink" && savedTheme === "butter") {
+      window.localStorage.setItem("ai-tools-hub.theme", "pink");
+    }
     const nextLogoIcon = isLogoIconId(savedLogoIcon) ? savedLogoIcon : defaultLogoIconId;
     setThemeIdState(nextTheme);
     setLogoIconIdState(nextLogoIcon);

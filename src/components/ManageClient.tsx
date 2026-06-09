@@ -5,9 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { CardDialog } from "@/components/CardDialog";
 import { CardIcon } from "@/components/icons";
 import { PageTitle } from "@/components/PageTitle";
+import { CardTypeSelect } from "@/components/CardTypeSelect";
+import { useTranslation } from "@/components/LocaleProvider";
 import { SelectMenu } from "@/components/SelectMenu";
 import { useToast } from "@/components/ToastProvider";
-import { cardTypeLabels, cardTypes, type Card, type CardInput, type CardType } from "@/lib/types";
+import { useCardTypes } from "@/lib/hooks/useCardTypes";
+import { parseApiError, translateEnglish, type Translator } from "@/lib/i18n";
+import { useDateFormatter } from "@/lib/i18n/hooks";
+import type { Card, CardInput, CardType } from "@/lib/types";
 
 type ManageStatusFilter = "" | "active" | "archived" | "favorite";
 
@@ -28,23 +33,20 @@ function cardToInput(card: Card): CardInput {
   };
 }
 
-async function parseApiError(response: Response) {
-  const payload = await response.json().catch(() => ({}));
-  return payload.error || "请求失败。";
-}
-
-function StatusPill({ card }: { card: Card }) {
-  if (card.isArchived) return <span className="rounded-lg bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Archived</span>;
+function StatusPill({ card, t }: { card: Card; t: Translator }) {
+  if (card.isArchived) {
+    return <span className="rounded-lg bg-background/70 px-2 py-1 text-xs font-medium text-muted-foreground">{t("status.archived")}</span>;
+  }
   if (card.isFavorite) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-lg bg-accent-soft px-2 py-1 text-xs font-medium text-primary">
-        <Star size={12} className="fill-current" />
-        Favourite
+      <span className="inline-flex items-center gap-1 rounded-lg bg-background/70 px-2 py-1 text-xs font-semibold text-muted-foreground">
+        <Star size={12} className="fill-accent text-accent" />
+        {t("status.favourite")}
       </span>
     );
   }
 
-  return <span className="rounded-lg border border-border px-2 py-1 text-xs font-medium text-muted-foreground">Active</span>;
+  return <span className="rounded-lg bg-background/70 px-2 py-1 text-xs font-medium text-muted-foreground">{t("status.active")}</span>;
 }
 
 function matchesManageSearch(card: Card, query: string) {
@@ -62,11 +64,12 @@ function matchesManageSearch(card: Card, query: string) {
   return haystack.includes(query.toLowerCase());
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", { month: "short", day: "numeric" }).format(new Date(value));
-}
+const manageActionButton =
+  "rounded-lg border border-border p-2 text-muted-foreground transition hover:bg-muted hover:text-accent";
 
 export function ManageClient() {
+  const { t } = useTranslation();
+  const dateFormatter = useDateFormatter();
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -75,19 +78,39 @@ export function ManageClient() {
   const [typeFilter, setTypeFilter] = useState<CardType | "">("");
   const [statusFilter, setStatusFilter] = useState<ManageStatusFilter>("");
   const { showToast } = useToast();
+  const { getLabel: getCardTypeLabel } = useCardTypes();
+
+  const statusFilterOptions = useMemo(
+    () => [
+      { value: "", label: t("pages.manage.allStatus") },
+      { value: "active", label: t("status.active") },
+      { value: "archived", label: t("status.archived") },
+      { value: "favorite", label: t("status.favourite") },
+    ],
+    [t],
+  );
+
+  const statItems = useMemo(
+    () => [
+      { key: "active", label: t("pages.manage.activeCount") },
+      { key: "archived", label: t("pages.manage.archivedCount") },
+      { key: "favourite", label: t("pages.manage.favouriteCount") },
+    ],
+    [t],
+  );
 
   async function refreshCards() {
     const response = await fetch("/api/cards?includeArchived=1");
-    if (!response.ok) throw new Error(await parseApiError(response));
+    if (!response.ok) throw new Error(await parseApiError(response, t));
     const payload = await response.json();
     setCards(payload.cards || []);
   }
 
   useEffect(() => {
     refreshCards()
-      .catch(() => setError("加载卡片失败，请确认数据库已初始化。"))
+      .catch(() => setError(t("pages.manage.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const filteredCards = useMemo(
     () =>
@@ -104,6 +127,12 @@ export function ManageClient() {
   const archivedCount = cards.length - activeCount;
   const favoriteCount = cards.filter((card) => card.isFavorite).length;
 
+  const statValues: Record<string, number> = {
+    active: activeCount,
+    archived: archivedCount,
+    favourite: favoriteCount,
+  };
+
   async function saveCard(input: CardInput) {
     const editing = dialogCard && "id" in dialogCard;
     const response = await fetch(editing ? `/api/cards/${dialogCard.id}` : "/api/cards", {
@@ -112,7 +141,7 @@ export function ManageClient() {
       body: JSON.stringify(input),
     });
 
-    if (!response.ok) throw new Error(await parseApiError(response));
+    if (!response.ok) throw new Error(await parseApiError(response, t));
     await refreshCards();
   }
 
@@ -124,14 +153,14 @@ export function ManageClient() {
       body: JSON.stringify({ isArchived: nextArchived }),
     });
     if (!response.ok) {
-      setError(await parseApiError(response));
+      setError(await parseApiError(response, t));
       return;
     }
 
     await refreshCards();
     showToast({
-      message: `${nextArchived ? "已归档" : "已恢复"} ${card.name}`,
-      actionLabel: "撤销",
+      message: nextArchived ? t("toast.archived", { name: card.name }) : t("toast.restored", { name: card.name }),
+      actionLabel: t("toast.undo"),
       onAction: async () => {
         await fetch(`/api/cards/${card.id}`, {
           method: "PATCH",
@@ -146,14 +175,33 @@ export function ManageClient() {
   async function removeCard(card: Card) {
     const response = await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
     if (!response.ok) {
-      setError(await parseApiError(response));
+      setError(await parseApiError(response, t));
       return;
     }
 
     await refreshCards();
     showToast({
-      message: `已删除 ${card.name}`,
-      actionLabel: "撤销",
+      message: t("toast.deleted", { name: card.name }),
+      actionLabel: t("toast.undo"),
+      onAction: async () => {
+        await fetch("/api/cards", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cardToInput(card)),
+        });
+        await refreshCards();
+      },
+    });
+  }
+
+  async function deleteCardFromDialog(card: Card) {
+    const response = await fetch(`/api/cards/${card.id}`, { method: "DELETE" });
+    if (!response.ok) throw new Error(await parseApiError(response, t));
+
+    await refreshCards();
+    showToast({
+      message: t("toast.deleted", { name: card.name }),
+      actionLabel: t("toast.undo"),
       onAction: async () => {
         await fetch("/api/cards", {
           method: "POST",
@@ -168,30 +216,26 @@ export function ManageClient() {
   return (
     <div className="page-shell space-y-5">
       <PageTitle
-        eyebrow="Admin"
-        title="Tool Management"
-        description="Manage every tool in one table. Sort order controls the global order used across the app."
+        eyebrow={translateEnglish("pages.manage.eyebrow")}
+        title={t("nav.manage")}
+        description={t("pages.manage.description")}
         action={
           <button
-            className="flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            className="flex h-10 items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground"
             onClick={() => setDialogCard(null)}
           >
             <Plus size={17} aria-hidden="true" />
-            新增卡片
+            {t("pages.home.addNew")}
           </button>
         }
       />
-      {loading ? <div className="text-sm text-muted-foreground">加载中...</div> : null}
+      {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       <div className="grid gap-3 sm:grid-cols-3">
-        {[
-          { label: "Active", value: activeCount },
-          { label: "Archived", value: archivedCount },
-          { label: "Favourite", value: favoriteCount },
-        ].map((item) => (
-          <div key={item.label} className="border-b border-border py-3">
+        {statItems.map((item) => (
+          <div key={item.key} className="border-b border-border py-3">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{item.label}</div>
-            <div className="mt-1 text-3xl font-bold">{item.value}</div>
+            <div className="mt-1 text-3xl font-bold">{statValues[item.key]}</div>
           </div>
         ))}
       </div>
@@ -203,47 +247,40 @@ export function ManageClient() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               className="h-11 w-full rounded-lg border border-border bg-surface pl-10 pr-4 text-sm outline-none transition focus:border-ring"
-              placeholder="搜索名称、URL、来源域名、简介、标签"
+              placeholder={t("pages.manage.searchPlaceholder")}
             />
           </label>
-          <SelectMenu
+          <CardTypeSelect
             value={typeFilter}
-            onChange={(nextValue) => setTypeFilter(nextValue as CardType | "")}
-            options={[
-              { value: "", label: "全部类型" },
-              ...cardTypes.map((type) => ({ value: type, label: cardTypeLabels[type] })),
-            ]}
+            onChange={(nextValue) => setTypeFilter(nextValue)}
+            includeAllOption
+            allOptionLabel={t("filter.allTypes")}
             buttonClassName="h-11 rounded-lg"
-            ariaLabel="管理页类型筛选"
+            ariaLabel={t("filter.typeAria")}
           />
           <SelectMenu
             value={statusFilter}
             onChange={(nextValue) => setStatusFilter(nextValue as ManageStatusFilter)}
-            options={[
-              { value: "", label: "全部状态" },
-              { value: "active", label: "Active" },
-              { value: "archived", label: "Archived" },
-              { value: "favorite", label: "Favourite" },
-            ]}
+            options={statusFilterOptions}
             buttonClassName="h-11 rounded-lg"
-            ariaLabel="管理页状态筛选"
+            ariaLabel={t("pages.manage.status")}
           />
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>显示 {filteredCards.length} / {cards.length}</span>
-          <span>按全局排序值排列</span>
+          <span>{t("pages.manage.showing", { count: filteredCards.length, total: cards.length })}</span>
+          <span>{t("pages.manage.sortedBy")}</span>
         </div>
         <div className="overflow-x-auto rounded-[18px] border border-border bg-surface">
           <table className="w-full min-w-[1060px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border bg-background/70 text-left text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                <th className="px-4 py-3">Tool</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Tags</th>
-                <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3">Order</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3">{t("pages.manage.tool")}</th>
+                <th className="px-4 py-3">{t("pages.manage.type")}</th>
+                <th className="px-4 py-3">{t("pages.manage.tags")}</th>
+                <th className="px-4 py-3">{t("pages.manage.created")}</th>
+                <th className="px-4 py-3">{t("pages.manage.order")}</th>
+                <th className="px-4 py-3">{t("pages.manage.status")}</th>
+                <th className="px-4 py-3 text-right">{t("pages.manage.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -254,7 +291,7 @@ export function ManageClient() {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-foreground text-white">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
                         <CardIcon name={card.icon} />
                       </div>
                       <div className="min-w-0">
@@ -264,38 +301,38 @@ export function ManageClient() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-lg bg-surface-strong px-2 py-1 text-xs font-semibold text-muted-foreground">
-                      {cardTypeLabels[card.type]}
+                    <span className="rounded-lg bg-background/70 px-2 py-1 text-xs font-semibold text-muted-foreground">
+                      {getCardTypeLabel(card.type)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex max-w-[260px] flex-wrap gap-1.5">
                       {card.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="rounded-lg bg-surface-strong px-2 py-1 text-xs text-muted-foreground">
+                        <span key={tag} className="rounded-lg bg-background/70 px-2 py-1 text-xs text-muted-foreground">
                           {tag}
                         </span>
                       ))}
                       {card.tags.length > 3 ? <span className="text-xs text-muted-foreground">+{card.tags.length - 3}</span> : null}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatDate(card.createdAt)}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{dateFormatter.format(new Date(card.createdAt))}</td>
                   <td className="px-4 py-3 font-semibold tabular-nums">{card.sortOrder}</td>
                   <td className="px-4 py-3">
-                    <StatusPill card={card} />
+                    <StatusPill card={card} t={t} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      <button className="rounded-lg border border-border p-2 hover:bg-muted" onClick={() => setDialogCard(card)} aria-label="编辑">
+                      <button className={manageActionButton} onClick={() => setDialogCard(card)} aria-label={t("toolCard.edit")}>
                         <Pencil size={16} />
                       </button>
                       <button
-                        className="rounded-lg border border-border p-2 hover:bg-muted"
+                        className={manageActionButton}
                         onClick={() => archiveCard(card)}
-                        aria-label={card.isArchived ? "恢复" : "归档"}
+                        aria-label={card.isArchived ? t("toolCard.restore") : t("toolCard.archive")}
                       >
                         <Archive size={16} />
                       </button>
-                      <button className="rounded-lg border border-border p-2 text-red-600 hover:bg-red-50" onClick={() => removeCard(card)} aria-label="删除">
+                      <button className="rounded-lg border border-border p-2 text-red-600 hover:bg-red-50" onClick={() => removeCard(card)} aria-label={t("toolCard.delete")}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -305,7 +342,7 @@ export function ManageClient() {
               {!filteredCards.length ? (
                 <tr>
                   <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={7}>
-                    暂无匹配卡片。
+                    {t("pages.manage.empty")}
                   </td>
                 </tr>
               ) : null}
@@ -314,7 +351,12 @@ export function ManageClient() {
         </div>
       </section>
       {dialogCard !== undefined ? (
-        <CardDialog card={dialogCard} onClose={() => setDialogCard(undefined)} onSubmit={saveCard} />
+        <CardDialog
+          card={dialogCard}
+          onClose={() => setDialogCard(undefined)}
+          onSubmit={saveCard}
+          onDelete={dialogCard ? deleteCardFromDialog : undefined}
+        />
       ) : null}
     </div>
   );

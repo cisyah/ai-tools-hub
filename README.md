@@ -36,15 +36,35 @@ MICROLINK_API_KEY=
 
 ## Upgrade From v2.0
 
-If you initialized the database before v2.1, run:
+If you initialized the database before v2.1, run migrations in order:
 
 ```bash
 mysql -u root -p ai_tools_hub < database/migrations/002_karakeep_inspired.sql
 mysql -u root -p ai_tools_hub < database/migrations/003_split_card_types.sql
 mysql -u root -p ai_tools_hub < database/migrations/004_expand_preview_url.sql
+mysql -u root -p ai_tools_hub < database/migrations/005_custom_card_types.sql
+mysql -u root -p ai_tools_hub < database/migrations/006_tag_registry.sql
 ```
 
 Fresh installs only need `database/schema.sql` and `database/seed.sql`.
+
+## Upgrade on 宝塔 (BT Panel)
+
+If **App types** shows “Failed to load app types”, the `card_types` table is missing. Run at least migration `005`:
+
+1. **宝塔 → 数据库** → find your database (e.g. `ai_tools_hub`) → **管理** (phpMyAdmin).
+2. Select the database → **SQL** tab.
+3. Open `database/migrations/005_custom_card_types.sql` from the project, paste the contents, and **执行**.
+
+Or in **宝塔 → 终端** (replace user, password, database name, and project path):
+
+```bash
+mysql -u数据库用户名 -p数据库名 < /www/wwwroot/你的项目路径/database/migrations/005_custom_card_types.sql
+```
+
+If the site was deployed before other v2.1 changes, run `002` → `003` → `004` → `005` in order (skip any step that errors with “already exists” / duplicate column).
+
+Verify in phpMyAdmin: table `card_types` exists with 6 default rows (`my_app`, `external_link`, …).
 
 ## Deployment Note
 

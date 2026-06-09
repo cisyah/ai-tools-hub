@@ -28,7 +28,7 @@ export function LogoMark({ iconId, size = "sm" }: LogoMarkProps) {
 
   if (!Icon) {
     return (
-      <div className={`grid grid-cols-3 gap-0.5 bg-primary text-primary-foreground shadow-sm ${frameSize}`}>
+      <div className={`grid grid-cols-3 gap-0.5 bg-accent text-accent-foreground shadow-sm ${frameSize}`}>
         {Array.from({ length: 9 }).map((_, index) => (
           <span key={index} className="rounded-full bg-current opacity-90" />
         ))}
@@ -37,7 +37,7 @@ export function LogoMark({ iconId, size = "sm" }: LogoMarkProps) {
   }
 
   return (
-    <div className={`flex items-center justify-center bg-primary text-primary-foreground shadow-sm ${frameSize}`}>
+    <div className={`flex items-center justify-center bg-accent text-accent-foreground shadow-sm ${frameSize}`}>
       <Icon size={iconSize} strokeWidth={2.2} aria-hidden="true" />
     </div>
   );

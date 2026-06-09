@@ -2,15 +2,26 @@
 
 import { ImagePlus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { iconOptions } from "@/components/icons";
+import { CardPreviewVisual } from "@/components/CardPreviewVisual";
+import { iconOptions, CardIcon } from "@/components/icons";
+import { pickFirstLoadableImageUrl } from "@/lib/preview-url";
 import { SelectMenu } from "@/components/SelectMenu";
-import { cardTypeLabels, cardTypes, type Card, type CardInput, type CardType } from "@/lib/types";
+import { CardTypeSelect } from "@/components/CardTypeSelect";
+import { useTranslation } from "@/components/LocaleProvider";
+import { useToast } from "@/components/ToastProvider";
+import { translateApiError } from "@/lib/i18n";
+import type { Card, CardInput } from "@/lib/types";
 
 type CardDialogProps = {
   card?: Card | null;
   onClose: () => void;
   onSubmit: (input: CardInput) => Promise<void>;
+  onDelete?: (card: Card) => Promise<void>;
 };
+
+const actionButtonClass = "rounded-md px-4 text-sm font-medium transition";
+const actionButtonMd = `h-10 ${actionButtonClass}`;
+const actionButtonSm = `h-9 px-3 ${actionButtonClass}`;
 
 const emptyInput: CardInput = {
   name: "",
@@ -31,7 +42,7 @@ const maxEmbeddedImageWidth = 960;
 const maxEmbeddedImageHeight = 720;
 const embeddedImageQuality = 0.78;
 
-function loadImage(file: File): Promise<HTMLImageElement> {
+function loadImage(file: File, readFailedMessage: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     const objectUrl = URL.createObjectURL(file);
@@ -42,18 +53,18 @@ function loadImage(file: File): Promise<HTMLImageElement> {
     };
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error("图片读取失败。"));
+      reject(new Error(readFailedMessage));
     };
     image.src = objectUrl;
   });
 }
 
-async function compressImageFile(file: File): Promise<string> {
+async function compressImageFile(file: File, messages: { typeError: string; processFailed: string; readFailed: string }): Promise<string> {
   if (!file.type.startsWith("image/")) {
-    throw new Error("请选择图片文件。");
+    throw new Error(messages.typeError);
   }
 
-  const image = await loadImage(file);
+  const image = await loadImage(file, messages.readFailed);
   const scale = Math.min(
     1,
     maxEmbeddedImageWidth / image.naturalWidth,
@@ -66,7 +77,7 @@ async function compressImageFile(file: File): Promise<string> {
   canvas.height = height;
 
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("无法处理图片。");
+  if (!context) throw new Error(messages.processFailed);
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
@@ -93,18 +104,23 @@ function toInput(card?: Card | null): CardInput {
   };
 }
 
-export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
+export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProps) {
+  const { t } = useTranslation();
+  const { showToast } = useToast();
   const [input, setInput] = useState<CardInput>(() => toInput(card));
   const [tagsText, setTagsText] = useState(() => toInput(card).tags.join(", "));
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
   const [error, setError] = useState("");
-  const title = card ? "编辑卡片" : "新增卡片";
+  const title = card ? t("cardDialog.editTitle") : t("cardDialog.newTitle");
 
   useEffect(() => {
     const nextInput = toInput(card);
     setInput(nextInput);
     setTagsText(nextInput.tags.join(", "));
+    setDeleteConfirm(false);
   }, [card]);
 
   const normalizedTags = useMemo(
@@ -129,7 +145,7 @@ export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
       await onSubmit({ ...input, tags: normalizedTags });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败。");
+      setError(err instanceof Error ? translateApiError(err.message, t) : t("cardDialog.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -148,17 +164,30 @@ export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
         body: JSON.stringify({ url: input.url }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "抓取元数据失败。");
+      if (!response.ok) throw new Error(payload.error || t("cardDialog.metadataFailed"));
+
+      const candidates = payload.metadata.previewUrlCandidates?.length
+        ? payload.metadata.previewUrlCandidates
+        : payload.metadata.previewUrl
+          ? [payload.metadata.previewUrl]
+          : [];
+      const loadablePreviewUrl = await pickFirstLoadableImageUrl(candidates);
 
       setInput((current) => ({
         ...current,
         name: current.name || payload.metadata.title || "",
-        description: current.description || payload.metadata.description || "",
-        previewUrl: current.previewUrl || payload.metadata.previewUrl || null,
+        description:
+          current.description ||
+          payload.metadata.description || "",
+        previewUrl:
+          loadablePreviewUrl ?? (current.previewUrl?.startsWith("data:") ? current.previewUrl : null),
         sourceDomain: current.sourceDomain || payload.metadata.sourceDomain || "",
       }));
+      showToast({ message: t("cardDialog.autofillSuccess") });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "抓取元数据失败。");
+      const msg = err instanceof Error ? translateApiError(err.message, t) : t("cardDialog.metadataFailed");
+      setError(msg);
+      showToast({ message: msg });
     } finally {
       setFetchingMetadata(false);
     }
@@ -172,25 +201,48 @@ export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
     setError("");
 
     try {
-      const previewUrl = await compressImageFile(file);
+      const previewUrl = await compressImageFile(file, {
+        typeError: t("cardDialog.imageTypeError"),
+        processFailed: t("cardDialog.imageProcessFailed"),
+        readFailed: t("cardDialog.imageReadFailed"),
+      });
       setInput((current) => ({ ...current, previewUrl }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "图片处理失败。");
+      setError(err instanceof Error ? err.message : t("cardDialog.imageHandleFailed"));
     }
   }
+
+  async function handleDelete() {
+    if (!card || !onDelete) return;
+
+    setDeleting(true);
+    setError("");
+
+    try {
+      await onDelete(card);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? translateApiError(err.message, t) : t("cardDialog.deleteFailed"));
+      setDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const actionDisabled = saving || deleting;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
       <form onSubmit={handleSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-md border border-border bg-surface shadow-2xl">
         <div className="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-5 py-4">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button type="button" className="rounded-md p-2 hover:bg-surface-strong" onClick={onClose} aria-label="关闭">
+          <button type="button" className="rounded-md p-2 hover:bg-surface-strong" onClick={onClose} aria-label={t("cardDialog.close")}>
             <X size={18} />
           </button>
         </div>
         <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
           <label className="space-y-1.5">
-            <span className="text-sm font-medium">名称</span>
+            <span className="text-sm font-medium">{t("cardDialog.name")}</span>
             <input
               required
               value={input.name}
@@ -199,54 +251,60 @@ export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
             />
           </label>
           <div className="space-y-1.5">
-            <span className="text-sm font-medium">类型</span>
-            <SelectMenu
+            <span className="text-sm font-medium">{t("cardDialog.type")}</span>
+            <CardTypeSelect
               value={input.type}
-              onChange={(nextValue) => setInput({ ...input, type: nextValue as CardType })}
-              options={cardTypes.map((type) => ({ value: type, label: cardTypeLabels[type] }))}
-              ariaLabel="卡片类型"
+              onChange={(nextValue) => setInput({ ...input, type: nextValue || "external_link" })}
+              ariaLabel={t("cardDialog.typeAria")}
             />
           </div>
           <label className="space-y-1.5 sm:col-span-2">
-            <span className="text-sm font-medium">URL</span>
+            <span className="text-sm font-medium">{t("cardDialog.url")}</span>
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <input
                 required
                 value={input.url}
                 onChange={(event) => setInput({ ...input, url: event.target.value })}
-                placeholder="https://example.com 或 /path"
+                placeholder={t("cardDialog.urlPlaceholder")}
                 className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
               />
               <button
                 type="button"
                 disabled={fetchingMetadata || !input.url}
                 onClick={refreshMetadata}
-                className="h-10 rounded-full border border-border bg-surface-strong px-4 text-sm font-medium transition hover:border-foreground/20 disabled:opacity-60"
+                className={`${actionButtonMd} border border-border bg-surface-strong hover:border-foreground/20 disabled:opacity-60`}
               >
-                {fetchingMetadata ? "抓取中..." : "刷新元数据"}
+                {fetchingMetadata ? t("cardDialog.autofillLoading") : t("cardDialog.autofill")}
               </button>
             </div>
           </label>
           <label className="space-y-1.5 sm:col-span-2">
-            <span className="text-sm font-medium">简介</span>
+            <span className="text-sm font-medium">{t("cardDialog.description")}</span>
             <textarea
               value={input.description}
-              onChange={(event) => setInput({ ...input, description: event.target.value })}
+              onChange={(event) =>
+                setInput({ ...input, description: event.target.value })
+              }
               rows={3}
+              placeholder={t("cardDialog.descriptionPlaceholder")}
               className="w-full resize-none rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-ring"
             />
           </label>
           <div className="space-y-1.5">
-            <span className="text-sm font-medium">图标</span>
+            <span className="text-sm font-medium">{t("cardDialog.icon")}</span>
             <SelectMenu
               value={input.icon}
               onChange={(nextValue) => setInput({ ...input, icon: nextValue })}
-              options={iconOptions.map((icon) => ({ value: icon, label: icon }))}
-              ariaLabel="卡片图标"
+              options={iconOptions.map((icon) => ({
+                value: icon,
+                label: icon,
+                leading: <CardIcon name={icon} size={16} />,
+              }))}
+              ariaLabel={t("cardDialog.iconAria")}
             />
           </div>
           <label className="space-y-1.5">
-            <span className="text-sm font-medium">排序值</span>
+            <span className="text-sm font-medium">{t("cardDialog.sortOrder")}</span>
             <input
               type="number"
               value={input.sortOrder}
@@ -255,48 +313,48 @@ export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
             />
           </label>
           <label className="space-y-1.5 sm:col-span-2">
-            <span className="text-sm font-medium">标签</span>
+            <span className="text-sm font-medium">{t("cardDialog.tags")}</span>
             <input
               value={tagsText}
               onChange={(event) => setTagsText(event.target.value)}
-              placeholder="用英文逗号分隔，例如 AI, 写作, 效率"
+              placeholder={t("cardDialog.tagsPlaceholder")}
               className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
             />
           </label>
           <div className="space-y-2 sm:col-span-2">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium">预览图</span>
-              <span className="text-xs text-muted">可填写 URL，或选择本地图片嵌入卡片</span>
+              <span className="text-sm font-medium">{t("cardDialog.preview")}</span>
+              <span className="text-xs text-muted">{t("cardDialog.previewHint")}</span>
             </div>
             <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
-              <div className="relative h-28 overflow-hidden rounded-md border border-border bg-surface-strong">
-                {input.previewUrl ? (
-                  <img src={input.previewUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-muted">暂无预览图</div>
-                )}
-              </div>
+              <CardPreviewVisual
+                previewUrl={input.previewUrl ?? null}
+                icon={input.icon}
+                className="relative h-28 overflow-hidden rounded-md border border-border bg-surface-strong"
+                imageClassName="h-full w-full object-cover object-top"
+                emptyLabel={t("cardDialog.previewEmpty")}
+              />
               <div className="space-y-2">
                 <input
                   value={input.previewUrl || ""}
                   onChange={(event) => setInput({ ...input, previewUrl: event.target.value || null })}
-                  placeholder="留空时会尝试自动抓取"
+                  placeholder={t("cardDialog.previewPlaceholder")}
                   className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
                 />
                 <div className="flex flex-wrap gap-2">
-                  <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-border bg-surface-strong px-3 text-sm font-medium transition hover:border-foreground/20">
+                  <label className={`inline-flex cursor-pointer items-center gap-2 border border-border bg-surface-strong ${actionButtonSm} hover:border-foreground/20`}>
                     <ImagePlus size={16} />
-                    选择图片
+                    {t("cardDialog.chooseImage")}
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                   </label>
                   {input.previewUrl ? (
                     <button
                       type="button"
                       onClick={() => setInput({ ...input, previewUrl: null })}
-                      className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-sm font-medium transition hover:border-foreground/20"
+                      className={`inline-flex items-center gap-2 border border-border ${actionButtonSm} hover:border-foreground/20`}
                     >
                       <Trash2 size={16} />
-                      移除图片
+                      {t("cardDialog.removeImage")}
                     </button>
                   ) : null}
                 </div>
@@ -304,16 +362,16 @@ export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
             </div>
           </div>
           <label className="space-y-1.5 sm:col-span-2">
-            <span className="text-sm font-medium">来源域名</span>
+            <span className="text-sm font-medium">{t("cardDialog.sourceDomain")}</span>
             <input
               value={input.sourceDomain}
               onChange={(event) => setInput({ ...input, sourceDomain: event.target.value })}
-              placeholder="example.com"
+              placeholder={t("cardDialog.sourceDomainPlaceholder")}
               className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
             />
           </label>
           <label className="space-y-1.5 sm:col-span-2">
-            <span className="text-sm font-medium">备注</span>
+            <span className="text-sm font-medium">{t("cardDialog.notes")}</span>
             <textarea
               value={input.notes}
               onChange={(event) => setInput({ ...input, notes: event.target.value })}
@@ -327,7 +385,7 @@ export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
               checked={input.isArchived}
               onChange={(event) => setInput({ ...input, isArchived: event.target.checked })}
             />
-            归档卡片
+            {t("cardDialog.archive")}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -335,21 +393,63 @@ export function CardDialog({ card, onClose, onSubmit }: CardDialogProps) {
               checked={input.isFavorite}
               onChange={(event) => setInput({ ...input, isFavorite: event.target.checked })}
             />
-            星标卡片
+            {t("cardDialog.favourite")}
           </label>
           {error ? <div className="text-sm text-red-600 sm:col-span-2">{error}</div> : null}
         </div>
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-          <button type="button" className="h-10 rounded-md border border-border px-4 text-sm hover:bg-surface-strong" onClick={onClose}>
-            取消
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-10 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {saving ? "保存中..." : "保存"}
-          </button>
+        <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-4">
+          <div className="min-w-0">
+            {card && onDelete ? (
+              deleteConfirm ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-red-600">{t("cardDialog.deleteConfirm", { name: card.name })}</span>
+                  <button
+                    type="button"
+                    disabled={actionDisabled}
+                    onClick={() => void handleDelete()}
+                    className={`${actionButtonMd} border border-red-200 bg-red-600 font-semibold text-white hover:bg-red-700 disabled:opacity-60`}
+                  >
+                    {deleting ? t("common.deleting") : t("common.confirmDelete")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionDisabled}
+                    onClick={() => setDeleteConfirm(false)}
+                    className={`${actionButtonMd} border border-border hover:bg-surface-strong disabled:opacity-60`}
+                  >
+                    {t("common.cancel")}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={actionDisabled}
+                  onClick={() => setDeleteConfirm(true)}
+                  className={`inline-flex items-center gap-2 ${actionButtonMd} border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-60`}
+                >
+                  <Trash2 size={16} />
+                  {t("common.delete")}
+                </button>
+              )
+            ) : null}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              disabled={actionDisabled}
+              className={`${actionButtonMd} border border-border hover:bg-surface-strong disabled:opacity-60`}
+              onClick={onClose}
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="submit"
+              disabled={actionDisabled}
+              className={`${actionButtonMd} bg-accent font-semibold text-accent-foreground disabled:opacity-60`}
+            >
+              {saving ? t("common.saving") : t("common.save")}
+            </button>
+          </div>
         </div>
       </form>
     </div>

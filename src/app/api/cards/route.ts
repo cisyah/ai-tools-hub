@@ -1,4 +1,5 @@
 import { error, ok, serverError } from "@/lib/api";
+import { assertKnownCardType } from "@/lib/queries/card-types";
 import { createCard, listCards } from "@/lib/queries/cards";
 import { parseCardInput } from "@/lib/validation";
 
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const input = parseCardInput(await request.json());
+    await assertKnownCardType(input.type);
     const card = await createCard(input);
     return ok({ card });
   } catch (err) {

@@ -2,8 +2,9 @@
 
 import { Check, Search, Tags, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { SelectMenu } from "@/components/SelectMenu";
-import { cardTypeLabels, cardTypes, type CardType, type FavoriteFilter, type TagCount } from "@/lib/types";
+import { CardTypeSelect } from "@/components/CardTypeSelect";
+import { useTranslation } from "@/components/LocaleProvider";
+import type { CardType, FavoriteFilter, TagCount } from "@/lib/types";
 
 export type FilterState = {
   searchQuery: string;
@@ -24,6 +25,7 @@ type FilterBarProps = {
 };
 
 export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarProps) {
+  const { t } = useTranslation();
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const tagMenuRef = useRef<HTMLDivElement>(null);
 
@@ -68,17 +70,15 @@ export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarPr
             value={filters.searchQuery}
             onChange={(event) => onChange({ ...filters, searchQuery: event.target.value })}
             className="h-10 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-sm outline-none transition focus:border-ring"
-            placeholder="搜索名称、简介、URL、标签、备注"
+            placeholder={t("filter.searchPlaceholder")}
           />
         </label>
-        <SelectMenu
+        <CardTypeSelect
           value={filters.filterType}
-          onChange={(nextValue) => onChange({ ...filters, filterType: nextValue as CardType | "" })}
-          options={[
-            { value: "", label: "全部类型" },
-            ...cardTypes.map((type) => ({ value: type, label: cardTypeLabels[type] })),
-          ]}
-          ariaLabel="筛选类型"
+          onChange={(nextValue) => onChange({ ...filters, filterType: nextValue })}
+          includeAllOption
+          allOptionLabel={t("filter.allTypes")}
+          ariaLabel={t("filter.typeAria")}
         />
         <div ref={tagMenuRef} className="relative">
           <button
@@ -87,14 +87,14 @@ export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarPr
             aria-expanded={tagMenuOpen}
             className={`flex h-10 w-full items-center justify-between gap-2 rounded-md border px-3 text-sm transition ${
               filters.filterTags.length
-                ? "border-primary bg-primary text-primary-foreground"
+                ? "border-accent bg-primary text-primary-foreground"
                 : "border-border bg-surface text-muted-foreground hover:border-foreground/20 hover:text-foreground"
             }`}
             onClick={() => setTagMenuOpen((current) => !current)}
           >
             <span className="flex min-w-0 items-center gap-2 truncate">
               <Tags size={15} />
-              Tags
+              {t("filter.tags")}
             </span>
             <span className="text-xs text-current/70">{filters.filterTags.length || tags.length}</span>
           </button>
@@ -124,9 +124,9 @@ export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarPr
         </div>
         <div className="flex h-10 rounded-md border border-border bg-surface p-1">
           {[
-            { value: "", label: "全部", count: statusCounts?.all },
-            { value: "favorite", label: "星标", count: statusCounts?.favorite },
-            { value: "normal", label: "普通", count: statusCounts?.normal },
+            { value: "", label: t("filter.all"), count: statusCounts?.all },
+            { value: "favorite", label: t("filter.favourite"), count: statusCounts?.favorite },
+            { value: "normal", label: t("filter.normal"), count: statusCounts?.normal },
           ].map((item) => (
             <button
               key={item.value || "all"}
@@ -146,7 +146,7 @@ export function FilterBar({ filters, tags, statusCounts, onChange }: FilterBarPr
             onClick={() => onChange({ searchQuery: "", filterType: "", filterTags: [], favorite: "" })}
           >
             <X size={14} aria-hidden="true" />
-            清空
+            {t("filter.clear")}
           </button>
         ) : null}
       </div>

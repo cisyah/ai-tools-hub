@@ -1,6 +1,21 @@
-export const cardTypes = ["my_app", "external_link", "doc", "tutorial", "inspiration", "case_study"] as const;
+export const defaultCardTypes = ["my_app", "external_link", "doc", "tutorial", "inspiration", "case_study"] as const;
 
-export type CardType = (typeof cardTypes)[number];
+export type DefaultCardType = (typeof defaultCardTypes)[number];
+export type CardType = string;
+
+export function isDefaultCardType(typeId: string): typeId is DefaultCardType {
+  return (defaultCardTypes as readonly string[]).includes(typeId);
+}
+
+export type CardTypeDefinition = {
+  id: string;
+  label: string;
+  sortOrder: number;
+};
+
+export type CardTypeUsage = CardTypeDefinition & {
+  count: number;
+};
 export type FavoriteFilter = "" | "favorite" | "normal";
 export type ArchivedFilter = "active" | "archived" | "all";
 export type ListKind = "manual" | "smart";
@@ -77,6 +92,7 @@ export type MetadataResult = {
   title: string;
   description: string;
   previewUrl: string | null;
+  previewUrlCandidates: string[];
   sourceDomain: string;
 };
 
@@ -95,7 +111,7 @@ export type StatsSummary = {
   tagDistribution: TagCount[];
 };
 
-export const cardTypeLabels: Record<CardType, string> = {
+export const fallbackCardTypeLabels: Record<DefaultCardType, string> = {
   my_app: "我的应用",
   external_link: "外部链接",
   doc: "文档",
@@ -103,6 +119,11 @@ export const cardTypeLabels: Record<CardType, string> = {
   inspiration: "灵感",
   case_study: "案例",
 };
+
+/** @deprecated Use useCardTypes() or /api/card-types labels instead. */
+export const cardTypes = defaultCardTypes;
+/** @deprecated Use useCardTypes() or /api/card-types labels instead. */
+export const cardTypeLabels = fallbackCardTypeLabels;
 
 export const defaultListFilters: ListFilters = {
   searchQuery: "",

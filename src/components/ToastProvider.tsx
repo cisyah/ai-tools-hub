@@ -43,7 +43,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <span className="text-foreground">{toast.message}</span>
               {toast.actionLabel ? (
                 <button
-                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                  className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
                   onClick={async () => {
                     await toast.onAction?.();
                     dismiss(toast.id);

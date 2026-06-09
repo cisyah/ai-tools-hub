@@ -2,17 +2,11 @@
 
 import { Folder, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { CardTypeSelect } from "@/components/CardTypeSelect";
+import { useTranslation } from "@/components/LocaleProvider";
 import { SelectMenu } from "@/components/SelectMenu";
-import {
-  cardTypeLabels,
-  cardTypes,
-  defaultListFilters,
-  listKindLabels,
-  type CardType,
-  type ListInput,
-  type ListKind,
-  type SavedList,
-} from "@/lib/types";
+import { useListKindLabels } from "@/lib/i18n/hooks";
+import { defaultListFilters, type ListInput, type ListKind, type SavedList } from "@/lib/types";
 
 type ListDialogProps = {
   list?: SavedList | null;
@@ -40,6 +34,8 @@ function toInput(list?: SavedList | null): ListInput {
 }
 
 export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
+  const { t } = useTranslation();
+  const listKindLabels = useListKindLabels();
   const [input, setInput] = useState<ListInput>(() => toInput(list));
   const [tagsText, setTagsText] = useState(() => toInput(list).filters.tags.join(", "));
   const [saving, setSaving] = useState(false);
@@ -71,7 +67,7 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
       });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败。");
+      setError(err instanceof Error ? err.message : t("listDialog.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -81,8 +77,8 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
       <form onSubmit={handleSubmit} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-surface shadow-2xl">
         <div className="sticky top-0 flex items-center justify-between bg-surface px-6 pb-2 pt-6">
-          <h2 className="text-lg font-semibold">{list ? "Edit List" : "New List"}</h2>
-          <button type="button" className="rounded-md p-2 hover:bg-surface-strong" onClick={onClose} aria-label="关闭">
+          <h2 className="text-lg font-semibold">{list ? t("listDialog.editTitle") : t("listDialog.newTitle")}</h2>
+          <button type="button" className="rounded-md p-2 hover:bg-surface-strong" onClick={onClose} aria-label={t("listDialog.close")}>
             <X size={18} />
           </button>
         </div>
@@ -95,32 +91,32 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
               required
               value={input.name}
               onChange={(event) => setInput({ ...input, name: event.target.value })}
-              placeholder="List Name"
+              placeholder={t("listDialog.namePlaceholder")}
               className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
             />
           </div>
           <label className="space-y-1.5">
-            <span className="text-sm font-semibold">Description (Optional)</span>
+            <span className="text-sm font-semibold">{t("listDialog.descriptionOptional")}</span>
             <textarea
               value={input.description}
               onChange={(event) => setInput({ ...input, description: event.target.value })}
               rows={2}
-              placeholder="Description"
+              placeholder={t("listDialog.descriptionPlaceholder")}
               className="w-full resize-none rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-ring"
             />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <span className="text-sm font-semibold">List Type</span>
+              <span className="text-sm font-semibold">{t("listDialog.listType")}</span>
               <SelectMenu
                 value={input.kind}
                 onChange={(nextValue) => setInput({ ...input, kind: nextValue as ListKind })}
                 options={(["manual", "smart"] as const).map((kind) => ({ value: kind, label: listKindLabels[kind] }))}
-                ariaLabel="列表类型"
+                ariaLabel={t("listDialog.typeAria")}
               />
             </div>
             <label className="space-y-1.5">
-              <span className="text-sm font-semibold">Sort Order</span>
+              <span className="text-sm font-semibold">{t("listDialog.sortOrder")}</span>
               <input
                 type="number"
                 value={input.sortOrder}
@@ -132,7 +128,7 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
           {input.kind === "smart" ? (
             <div className="grid gap-3 rounded-md border border-border bg-surface-strong p-3 sm:grid-cols-2">
               <label className="space-y-1.5 sm:col-span-2">
-                <span className="text-sm font-medium">搜索词</span>
+                <span className="text-sm font-medium">{t("listDialog.searchQuery")}</span>
                 <input
                   value={input.filters.searchQuery}
                   onChange={(event) => setInput({ ...input, filters: { ...input.filters, searchQuery: event.target.value } })}
@@ -140,53 +136,51 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
                 />
               </label>
               <div className="space-y-1.5">
-                <span className="text-sm font-medium">类型</span>
-                <SelectMenu
+                <span className="text-sm font-medium">{t("listDialog.type")}</span>
+                <CardTypeSelect
                   value={input.filters.type}
-                  onChange={(nextValue) => setInput({ ...input, filters: { ...input.filters, type: nextValue as CardType | "" } })}
-                  options={[
-                    { value: "", label: "全部类型" },
-                    ...cardTypes.map((type) => ({ value: type, label: cardTypeLabels[type] })),
-                  ]}
-                  ariaLabel="智能列表类型筛选"
+                  onChange={(nextValue) => setInput({ ...input, filters: { ...input.filters, type: nextValue } })}
+                  includeAllOption
+                  allOptionLabel={t("filter.allTypes")}
+                  ariaLabel={t("filter.typeAria")}
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-sm font-medium">归档状态</span>
+                <span className="text-sm font-medium">{t("listDialog.archived")}</span>
                 <SelectMenu
                   value={input.filters.archived}
                   onChange={(nextValue) =>
                     setInput({ ...input, filters: { ...input.filters, archived: nextValue as "active" | "archived" | "all" } })
                   }
                   options={[
-                    { value: "active", label: "未归档" },
-                    { value: "archived", label: "已归档" },
-                    { value: "all", label: "全部" },
+                    { value: "active", label: t("archivedFilter.active") },
+                    { value: "archived", label: t("archivedFilter.archived") },
+                    { value: "all", label: t("archivedFilter.all") },
                   ]}
-                  ariaLabel="智能列表归档状态"
+                  ariaLabel={t("listDialog.archived")}
                 />
               </div>
               <div className="space-y-1.5">
-                <span className="text-sm font-medium">星标</span>
+                <span className="text-sm font-medium">{t("listDialog.favourite")}</span>
                 <SelectMenu
                   value={input.filters.favorite}
                   onChange={(nextValue) =>
                     setInput({ ...input, filters: { ...input.filters, favorite: nextValue as "" | "favorite" | "normal" } })
                   }
                   options={[
-                    { value: "", label: "全部" },
-                    { value: "favorite", label: "星标" },
-                    { value: "normal", label: "普通" },
+                    { value: "", label: t("filter.all") },
+                    { value: "favorite", label: t("filter.favourite") },
+                    { value: "normal", label: t("filter.normal") },
                   ]}
-                  ariaLabel="智能列表星标筛选"
+                  ariaLabel={t("listDialog.favourite")}
                 />
               </div>
               <label className="space-y-1.5">
-                <span className="text-sm font-medium">标签 AND</span>
+                <span className="text-sm font-medium">{t("listDialog.tagsAnd")}</span>
                 <input
                   value={tagsText}
                   onChange={(event) => setTagsText(event.target.value)}
-                  placeholder="研究, AI"
+                  placeholder={t("listDialog.tagsPlaceholder")}
                   className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
                 />
               </label>
@@ -196,14 +190,14 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
         </div>
         <div className="flex justify-end gap-2 px-6 pb-6 pt-2">
           <button type="button" className="h-10 rounded-md border border-border px-4 text-sm hover:bg-surface-strong" onClick={onClose}>
-            Close
+            {t("common.close")}
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="h-10 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="h-10 rounded-md bg-accent px-5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
           >
-            {saving ? "Saving..." : list ? "Save" : "Create"}
+            {saving ? t("common.saving") : list ? t("common.save") : t("common.create")}
           </button>
         </div>
       </form>

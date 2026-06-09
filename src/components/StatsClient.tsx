@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { PageTitle } from "@/components/PageTitle";
-import { cardTypeLabels, type StatsSummary } from "@/lib/types";
+import { useTranslation } from "@/components/LocaleProvider";
+import { translateEnglish } from "@/lib/i18n";
+import { useCardTypeLabels } from "@/lib/i18n/hooks";
+import type { StatsSummary } from "@/lib/types";
 
 function StatBox({ label, value, tone }: { label: string; value: number; tone?: "primary" }) {
   return (
@@ -27,7 +30,7 @@ function BarRow({ label, value, max }: { label: string; value: number; max: numb
   );
 }
 
-function TrendStrip({ daily }: { daily: StatsSummary["daily"] }) {
+function TrendStrip({ daily, emptyLabel }: { daily: StatsSummary["daily"]; emptyLabel: string }) {
   const max = Math.max(...daily.map((item) => item.count), 0);
 
   return (
@@ -42,7 +45,7 @@ function TrendStrip({ daily }: { daily: StatsSummary["daily"] }) {
           </div>
         );
       })}
-      {!daily.length ? <div className="self-center text-sm text-muted-foreground">No trend data yet.</div> : null}
+      {!daily.length ? <div className="self-center text-sm text-muted-foreground">{emptyLabel}</div> : null}
     </div>
   );
 }
@@ -52,14 +55,14 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
     <section className="rounded-[22px] border border-border bg-surface p-5">
       <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
         <h2 className="font-semibold">{title}</h2>
-        <span className="h-2 w-2 rounded-full bg-primary" />
+        <span className="h-2 w-2 rounded-full bg-accent" />
       </div>
       <div className="space-y-4">{children}</div>
     </section>
   );
 }
 
-function TypeBlocks({ stats }: { stats: StatsSummary }) {
+function TypeBlocks({ stats, cardTypeLabels, emptyLabel }: { stats: StatsSummary; cardTypeLabels: Record<string, string>; emptyLabel: string }) {
   const total = Math.max(stats.typeDistribution.reduce((sum, item) => sum + item.count, 0), 1);
 
   return (
@@ -73,12 +76,14 @@ function TypeBlocks({ stats }: { stats: StatsSummary }) {
           </div>
         </div>
       ))}
-      {!stats.typeDistribution.length ? <div className="text-sm text-muted-foreground">No type data yet.</div> : null}
+      {!stats.typeDistribution.length ? <div className="text-sm text-muted-foreground">{emptyLabel}</div> : null}
     </div>
   );
 }
 
 export function StatsClient() {
+  const { t } = useTranslation();
+  const cardTypeLabels = useCardTypeLabels();
   const [stats, setStats] = useState<StatsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -87,43 +92,47 @@ export function StatsClient() {
     fetch("/api/stats")
       .then((response) => response.json())
       .then((payload) => setStats(payload.stats))
-      .catch(() => setError("加载统计失败，请确认数据库已初始化。"))
+      .catch(() => setError(t("pages.stats.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const topMax = Math.max(...(stats?.topCards.map((item) => item.count) || [0]));
   const tagMax = Math.max(...(stats?.tagDistribution.map((item) => item.count) || [0]));
 
   return (
     <div className="page-shell space-y-5">
-      <PageTitle eyebrow="Analytics" title="Stats" description="Open events are tracked with search, type, and tag filter context." />
-      {loading ? <div className="text-sm text-muted-foreground">加载中...</div> : null}
+      <PageTitle
+        eyebrow={translateEnglish("pages.stats.eyebrow")}
+        title={t("nav.stats")}
+        description={t("pages.stats.description")}
+      />
+      {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       {stats ? (
         <>
           <div className="rounded-[22px] border border-border bg-surface px-5 py-2 sm:grid sm:grid-cols-[1.4fr_1fr_1fr] sm:gap-6">
-            <StatBox label="Total opens" value={stats.totalOpens} tone="primary" />
-            <StatBox label="Last 7 days" value={stats.last7Days} />
-            <StatBox label="Last 30 days" value={stats.last30Days} />
+            <StatBox label={t("pages.stats.totalOpens")} value={stats.totalOpens} tone="primary" />
+            <StatBox label={t("pages.stats.last7Days")} value={stats.last7Days} />
+            <StatBox label={t("pages.stats.last30Days")} value={stats.last30Days} />
           </div>
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <Panel title="Last 30 Days">
-              <TrendStrip daily={stats.daily} />
+            <Panel title={t("pages.stats.last30DaysPanel")}>
+              <TrendStrip daily={stats.daily} emptyLabel={t("pages.stats.noTrend")} />
             </Panel>
-            <Panel title="Type Distribution">
-              <TypeBlocks stats={stats} />
+            <Panel title={t("pages.stats.typeDistribution")}>
+              <TypeBlocks stats={stats} cardTypeLabels={cardTypeLabels} emptyLabel={t("pages.stats.noTypeData")} />
             </Panel>
-            <Panel title="Top Tools">
-                {stats.topCards.map((item) => (
-                  <BarRow key={item.cardId} label={item.name} value={item.count} max={topMax} />
-                ))}
-                {!stats.topCards.length ? <div className="text-sm text-muted-foreground">No open records yet.</div> : null}
+            <Panel title={t("pages.stats.topTools")}>
+              {stats.topCards.map((item) => (
+                <BarRow key={item.cardId} label={item.name} value={item.count} max={topMax} />
+              ))}
+              {!stats.topCards.length ? <div className="text-sm text-muted-foreground">{t("pages.stats.noOpenRecords")}</div> : null}
             </Panel>
-            <Panel title="Tag Distribution">
-                {stats.tagDistribution.slice(0, 10).map((item) => (
-                  <BarRow key={item.name} label={item.name} value={item.count} max={tagMax} />
-                ))}
-                {!stats.tagDistribution.length ? <div className="text-sm text-muted-foreground">No tag data yet.</div> : null}
+            <Panel title={t("pages.stats.tagDistribution")}>
+              {stats.tagDistribution.slice(0, 10).map((item) => (
+                <BarRow key={item.name} label={item.name} value={item.count} max={tagMax} />
+              ))}
+              {!stats.tagDistribution.length ? <div className="text-sm text-muted-foreground">{t("pages.stats.noTagData")}</div> : null}
             </Panel>
           </div>
         </>

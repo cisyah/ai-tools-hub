@@ -1,3 +1,5 @@
+export const addCardButtonLabel = "Add New";
+
 export const defaultLogoIconId = "dots";
 export const defaultSiteName = "AI Tools Hub";
 export const defaultTagline = "self hosted";

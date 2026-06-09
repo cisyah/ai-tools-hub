@@ -1,5 +1,5 @@
+import { isCardTypeSlug } from "@/lib/card-types";
 import {
-  cardTypes,
   defaultListFilters,
   type ArchivedFilter,
   type CardInput,
@@ -37,7 +37,8 @@ function asTags(value: unknown): string[] {
 }
 
 function asCardType(value: unknown): CardType | null {
-  return cardTypes.includes(value as CardType) ? (value as CardType) : null;
+  const slug = asString(value);
+  return isCardTypeSlug(slug) ? slug : null;
 }
 
 function asListKind(value: unknown): ListKind | null {
@@ -72,6 +73,8 @@ export function isExternalHttpUrl(value: string): boolean {
   }
 }
 
+export const CARD_DESCRIPTION_MAX_LENGTH = 120;
+
 export function parseCardInput(body: unknown): CardInput {
   if (!body || typeof body !== "object") {
     throw new Error("请求体格式不正确。");
@@ -85,8 +88,11 @@ export function parseCardInput(body: unknown): CardInput {
   const sortOrder = Number(data.sortOrder ?? data.sort_order ?? 0);
 
   if (!name) throw new Error("名称不能为空。");
+  if (description.length > CARD_DESCRIPTION_MAX_LENGTH) {
+    throw new Error(`简介不能超过 ${CARD_DESCRIPTION_MAX_LENGTH} 字。`);
+  }
   if (!url || !isValidUrl(url)) throw new Error("URL 只支持 http(s):// 或站内 /path。");
-  if (!type) throw new Error("卡片类型不正确。");
+  if (!type) throw new Error("应用类型不正确。");
   if (!Number.isFinite(sortOrder)) throw new Error("排序值必须是数字。");
 
   return {

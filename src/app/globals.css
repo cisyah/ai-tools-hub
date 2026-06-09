@@ -1,69 +1,52 @@
 @import "tailwindcss";
 
 :root {
-  --background: hsl(60 9% 94%);
+  --background: hsl(60 4% 97%);
   --foreground: hsl(20 6% 10%);
   --surface: hsl(0 0% 100%);
-  --surface-strong: hsl(58 11% 90%);
-  --muted: hsl(58 11% 90%);
   --muted-foreground: hsl(30 4% 46%);
   --border: hsl(50 8% 84%);
-  --primary: hsl(203 22% 79%);
-  --primary-foreground: hsl(195 10% 14%);
-  --accent: hsl(203 22% 79%);
-  --accent-soft: hsl(204 23% 92%);
+  --accent: #43302e;
+  --accent-foreground: #fff1b5;
+  --primary: color-mix(in srgb, var(--accent) 32%, var(--surface));
+  --primary-foreground: var(--foreground);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  --surface-strong: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --muted: var(--surface-strong);
   --destructive: hsl(13 81% 38%);
-  --ring: hsl(203 14% 56%);
+  --ring: color-mix(in srgb, var(--accent) 42%, var(--foreground));
   --sidebar: hsl(0 0% 100%);
   --sidebar-foreground: hsl(20 6% 10%);
 }
 
-:root[data-theme="mist"] {
-  --primary: hsl(203 22% 79%);
-  --primary-foreground: hsl(195 10% 14%);
-  --accent: hsl(203 22% 79%);
-  --accent-soft: hsl(204 23% 92%);
-  --ring: hsl(203 14% 56%);
+:root[data-theme="buttermilk"] {
+  --accent: #fff1b5;
+  --accent-foreground: #43302e;
 }
 
-:root[data-theme="clay"] {
-  --primary: hsl(1 30% 64%);
-  --primary-foreground: hsl(3 17% 11%);
-  --accent: hsl(1 30% 64%);
-  --accent-soft: hsl(0 25% 93%);
-  --ring: hsl(1 20% 51%);
+:root[data-theme="pink"] {
+  --accent: #edb4c0;
+  --accent-foreground: #43302e;
 }
 
-:root[data-theme="ink"] {
-  --primary: hsl(240 8% 42%);
-  --primary-foreground: hsl(0 0% 100%);
-  --accent: hsl(240 8% 42%);
-  --accent-soft: hsl(240 10% 92%);
-  --ring: hsl(240 8% 42%);
+:root[data-theme="pastel-blue"] {
+  --accent: #c1dbe8;
+  --accent-foreground: #43302e;
 }
 
-:root[data-theme="moss"] {
-  --primary: hsl(43 45% 68%);
-  --primary-foreground: hsl(41 31% 11%);
-  --accent: hsl(43 45% 68%);
-  --accent-soft: hsl(43 38% 92%);
-  --ring: hsl(43 24% 50%);
+:root[data-theme="rust"] {
+  --accent: #ba3801;
+  --accent-foreground: #ffffff;
 }
 
-:root[data-theme="sage"] {
-  --primary: hsl(67 16% 68%);
-  --primary-foreground: hsl(68 20% 11%);
-  --accent: hsl(67 16% 68%);
-  --accent-soft: hsl(66 18% 92%);
-  --ring: hsl(67 10% 51%);
+:root[data-theme="navy"] {
+  --accent: #4a69b3;
+  --accent-foreground: #ffffff;
 }
 
-:root[data-theme="linen"] {
-  --primary: hsl(63 20% 82%);
-  --primary-foreground: hsl(62 14% 13%);
-  --accent: hsl(63 20% 82%);
-  --accent-soft: hsl(60 20% 93%);
-  --ring: hsl(63 10% 57%);
+:root[data-theme="old-burgundy"] {
+  --accent: #43302e;
+  --accent-foreground: #fff1b5;
 }
 
 @theme inline {
@@ -74,9 +57,10 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-destructive: var(--destructive);
   --color-ring: var(--ring);
@@ -109,17 +93,20 @@ a {
 }
 
 button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
+a:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
 
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
 ::selection {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .shadow-airbnb {

@@ -1,11 +1,12 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export type SelectOption = {
   value: string;
   label: string;
+  leading?: ReactNode;
 };
 
 type SelectMenuProps = {
@@ -16,9 +17,19 @@ type SelectMenuProps = {
   buttonClassName?: string;
   menuClassName?: string;
   ariaLabel?: string;
+  menuFooter?: ReactNode;
 };
 
-export function SelectMenu({ value, options, onChange, className = "", buttonClassName = "", menuClassName = "", ariaLabel }: SelectMenuProps) {
+export function SelectMenu({
+  value,
+  options,
+  onChange,
+  className = "",
+  buttonClassName = "",
+  menuClassName = "",
+  ariaLabel,
+  menuFooter,
+}: SelectMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value) || options[0];
@@ -57,7 +68,10 @@ export function SelectMenu({ value, options, onChange, className = "", buttonCla
         onClick={() => setOpen((current) => !current)}
         className={`flex h-10 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 text-left text-sm outline-none transition hover:border-foreground/20 focus:border-ring ${buttonClassName}`}
       >
-        <span className="min-w-0 truncate">{selected?.label || ""}</span>
+        <span className="flex min-w-0 items-center gap-2 truncate">
+          {selected?.leading ? <span className="shrink-0 text-foreground">{selected.leading}</span> : null}
+          <span className="truncate">{selected?.label || ""}</span>
+        </span>
         <ChevronDown size={16} className={`shrink-0 text-muted-foreground transition ${open ? "rotate-180" : ""}`} />
       </button>
       {open ? (
@@ -69,7 +83,7 @@ export function SelectMenu({ value, options, onChange, className = "", buttonCla
             const active = option.value === value;
             return (
               <button
-                key={option.value}
+                key={option.value || "__all__"}
                 type="button"
                 role="option"
                 aria-selected={active}
@@ -81,11 +95,18 @@ export function SelectMenu({ value, options, onChange, className = "", buttonCla
                   active ? "bg-surface-strong text-foreground" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
                 }`}
               >
-                <Check size={15} className={active ? "opacity-100" : "opacity-0"} />
+                <Check size={15} className={`shrink-0 ${active ? "opacity-100" : "opacity-0"}`} />
+                {option.leading ? <span className="shrink-0 text-foreground">{option.leading}</span> : null}
                 <span className="min-w-0 truncate">{option.label}</span>
               </button>
             );
           })}
+          {menuFooter ? (
+            <>
+              <div className="my-1 border-t border-border" />
+              {menuFooter}
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>

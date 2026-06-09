@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS cards (
   name VARCHAR(160) NOT NULL,
   description TEXT NOT NULL,
   url TEXT NOT NULL,
-  type ENUM('my_app', 'external_link', 'doc', 'tutorial', 'inspiration', 'case_study') NOT NULL,
+  type VARCHAR(64) NOT NULL,
   icon VARCHAR(80) NOT NULL DEFAULT '',
   preview_url MEDIUMTEXT NULL,
   source_domain VARCHAR(255) NOT NULL DEFAULT '',
@@ -17,6 +17,28 @@ CREATE TABLE IF NOT EXISTS cards (
   INDEX idx_cards_archived_sort (is_archived, sort_order),
   INDEX idx_cards_favorite (is_favorite),
   INDEX idx_cards_type (type)
+);
+
+CREATE TABLE IF NOT EXISTS card_types (
+  id VARCHAR(64) PRIMARY KEY,
+  label VARCHAR(80) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uq_card_types_label (label)
+);
+
+INSERT INTO card_types (id, label, sort_order) VALUES
+  ('my_app', '我的应用', 0),
+  ('external_link', '外部链接', 10),
+  ('doc', '文档', 20),
+  ('tutorial', '教程', 30),
+  ('inspiration', '灵感', 40),
+  ('case_study', '案例', 50);
+
+CREATE TABLE IF NOT EXISTS tag_registry (
+  name VARCHAR(80) PRIMARY KEY,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 );
 
 CREATE TABLE IF NOT EXISTS lists (
@@ -45,7 +67,7 @@ CREATE TABLE IF NOT EXISTS card_lists (
 CREATE TABLE IF NOT EXISTS card_open_events (
   id VARCHAR(36) PRIMARY KEY,
   card_id VARCHAR(36) NOT NULL,
-  card_type ENUM('my_app', 'external_link', 'doc', 'tutorial', 'inspiration', 'case_study') NOT NULL,
+  card_type VARCHAR(64) NOT NULL,
   event_day DATE NOT NULL,
   search_query VARCHAR(255) NOT NULL DEFAULT '',
   filter_type VARCHAR(32) NOT NULL DEFAULT '',

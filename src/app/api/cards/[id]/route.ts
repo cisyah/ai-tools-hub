@@ -1,4 +1,5 @@
 import { error, ok, serverError } from "@/lib/api";
+import { assertKnownCardType } from "@/lib/queries/card-types";
 import { deleteCard, getCard, setCardArchiveState, setCardFavoriteState, updateCard } from "@/lib/queries/cards";
 import { parseCardInput } from "@/lib/validation";
 
@@ -33,6 +34,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const input = parseCardInput(body);
+    await assertKnownCardType(input.type);
     const card = await updateCard(id, input);
     return ok({ card });
   } catch (err) {
