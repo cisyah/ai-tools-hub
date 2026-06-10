@@ -201,7 +201,7 @@ const en = {
       pickerEmpty: "No apps available to add. Everything is already in this list.",
       pickerNoMatch: "No matching apps.",
       pickerSelected: "{count} selected",
-      pickerAdd: "Add selected",
+      pickerAdd: "Add",
       pickerAdding: "Adding...",
       pickerAddError: "Failed to add to list. Please try again.",
     },

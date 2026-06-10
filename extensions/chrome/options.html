@@ -16,19 +16,13 @@
       <label class="field">
         <span class="label">服务器地址</span>
         <input id="serverUrl" type="text" placeholder="http://127.0.0.1:7317" />
-        <small class="hint">本地调试填 http://127.0.0.1:7317；上线后填火山引擎域名，例如 https://hub.example.com</small>
+        <small class="hint">本地调试填 http://127.0.0.1:7317；上线后填域名，例如 https://tools-hub.xuyh.site</small>
       </label>
 
       <label class="field">
         <span class="label">API Token</span>
         <input id="apiToken" type="password" placeholder="与服务器 .env 的 EXTENSION_API_TOKEN 一致" />
         <small class="hint">服务器未设置 token 时可留空（仅本地）。公网部署必须填写。</small>
-      </label>
-
-      <label class="field">
-        <span class="label">默认卡片类型</span>
-        <select id="defaultType"></select>
-        <small class="hint">从服务器读取；读不到时使用内置默认列表。</small>
       </label>
 
       <label class="field">

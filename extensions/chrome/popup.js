@@ -12,7 +12,6 @@ const els = {
   description: $("description"),
   descCount: $("desc-count"),
   url: $("url"),
-  type: $("type"),
   favorite: $("favorite"),
   tags: $("tags"),
   previewThumb: $("preview-thumb"),
@@ -65,42 +64,6 @@ async function extractFromTab(tabId) {
   return results?.[0]?.result || null;
 }
 
-async function loadCardTypes() {
-  els.type.innerHTML = "";
-  try {
-    const res = await fetch(`${settings.serverUrl}/api/card-types`, {
-      headers: authHeaders(settings.apiToken),
-    });
-    const data = await res.json();
-    const types = Array.isArray(data?.types) ? data.types : [];
-    for (const t of types) {
-      const opt = document.createElement("option");
-      opt.value = t.id;
-      opt.textContent = t.label || t.id;
-      els.type.appendChild(opt);
-    }
-    if (!types.length) throw new Error("empty");
-  } catch {
-    // Fallback list if the server is unreachable.
-    for (const [id, label] of [
-      ["my_app", "我的应用"],
-      ["external_link", "外部链接"],
-      ["doc", "文档"],
-      ["tutorial", "教程"],
-      ["inspiration", "灵感"],
-      ["case_study", "案例"],
-    ]) {
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = label;
-      els.type.appendChild(opt);
-    }
-  }
-  if ([...els.type.options].some((o) => o.value === settings.defaultType)) {
-    els.type.value = settings.defaultType;
-  }
-}
-
 function parseTags(value) {
   return value
     .split(/[,，]/)
@@ -122,7 +85,6 @@ async function handleSave() {
     name,
     description: els.description.value.trim(),
     url,
-    type: els.type.value,
     icon: iconUrl,
     previewUrl: previewUrl || null,
     sourceDomain: sourceDomain,
@@ -269,8 +231,6 @@ async function init() {
   if (info.platform === "xiaohongshu") {
     setMessage("小红书链接需手动填写标题和上传封面图片", "warn");
   }
-
-  await loadCardTypes();
 
   hide(els.loading);
   show(els.form);

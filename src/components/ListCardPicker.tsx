@@ -2,7 +2,9 @@
 
 import { Check, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { CardPreviewVisual } from "@/components/CardPreviewVisual";
 import { useTranslation } from "@/components/LocaleProvider";
+import { getPlatformSourceLabel } from "@/lib/platform-source";
 import type { Card } from "@/lib/types";
 
 type ListCardPickerProps = {
@@ -31,7 +33,7 @@ export function ListCardPicker({ listName, cards, onClose, onConfirm }: ListCard
     const query = searchQuery.trim().toLowerCase();
     if (!query) return cards;
     return cards.filter((card) =>
-      [card.name, card.url, card.description, card.tags.join(" ")]
+      [card.name, card.url, card.description, card.sourceDomain, card.tags.join(" ")]
         .filter(Boolean)
         .some((field) => field.toLowerCase().includes(query)),
     );
@@ -65,7 +67,7 @@ export function ListCardPicker({ listName, cards, onClose, onConfirm }: ListCard
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-      <div className="flex h-[88vh] max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-2xl">
+      <div className="flex h-[88vh] max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-2xl">
         <div className="flex items-start justify-between gap-3 px-6 pb-3 pt-6">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold">{t("pages.listDetail.pickerTitle")}</h2>
@@ -100,36 +102,50 @@ export function ListCardPicker({ listName, cards, onClose, onConfirm }: ListCard
           ) : !filteredCards.length ? (
             <div className="py-10 text-center text-sm text-muted-foreground">{t("pages.listDetail.pickerNoMatch")}</div>
           ) : (
-            <ul className="grid grid-cols-1 gap-2 pb-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 pb-2 sm:grid-cols-2 xl:grid-cols-3">
               {filteredCards.map((card) => {
                 const checked = selectedIds.has(card.id);
+                const sourceLabel = getPlatformSourceLabel(card.url, card.sourceDomain, t("platformSources.other"));
                 return (
-                  <li key={card.id}>
-                    <button
-                      type="button"
-                      onClick={() => toggle(card.id)}
-                      className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition ${
-                        checked ? "border-primary bg-surface-strong" : "border-border hover:bg-surface-strong"
-                      }`}
-                    >
+                  <button
+                    type="button"
+                    key={card.id}
+                    onClick={() => toggle(card.id)}
+                    className={`group overflow-hidden rounded-lg border-[0.5px] bg-app-card-surface text-left text-app-card-foreground transition duration-200 hover:-translate-y-0.5 ${
+                      checked ? "border-primary ring-2 ring-primary/20" : "border-app-card-border hover:border-app-card-foreground/25"
+                    }`}
+                  >
+                    <div className="relative">
+                      <CardPreviewVisual
+                        previewUrl={card.previewUrl}
+                        previewPosition={card.previewPosition}
+                        icon={card.icon}
+                        imageClassName="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                      />
                       <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
-                          checked ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                        className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
+                          checked
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-surface/90 text-transparent"
                         }`}
                       >
-                        {checked ? <Check size={13} strokeWidth={3} /> : null}
+                        <Check size={16} strokeWidth={3} />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-foreground">{card.name}</span>
-                        {card.url ? (
-                          <span className="block truncate text-xs text-muted-foreground">{card.url}</span>
-                        ) : null}
+                    </div>
+                    <div className="px-4 pb-4 pt-4">
+                      <div className="truncate text-base font-bold leading-tight tracking-normal text-[#454545]">{card.name}</div>
+                      <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-app-card-muted">{card.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2 border-t border-[#EEECE5] bg-app-card-surface px-3 py-2 text-xs text-app-card-muted">
+                      <span className="inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-accent-soft px-2.5 text-[11px] font-normal leading-none text-foreground">
+                        {sourceLabel}
                       </span>
-                    </button>
-                  </li>
+                      <span className="truncate font-normal text-app-card-muted">{card.sourceDomain || card.url}</span>
+                    </div>
+                  </button>
                 );
               })}
-            </ul>
+            </div>
           )}
         </div>
 

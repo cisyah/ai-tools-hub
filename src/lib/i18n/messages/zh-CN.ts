@@ -199,7 +199,7 @@ const zhCN = {
       pickerEmpty: "没有可加入的应用，所有应用都已在此列表中。",
       pickerNoMatch: "没有匹配的应用。",
       pickerSelected: "已选 {count} 个",
-      pickerAdd: "加入所选",
+      pickerAdd: "添加",
       pickerAdding: "加入中...",
       pickerAddError: "加入列表失败，请重试。",
     },
