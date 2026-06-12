@@ -409,6 +409,12 @@ ai-tools-hub/
 └── README.md
 ```
 
+## Contributors
+
+- [cisyah](https://github.com/cisyah) — Product design & development
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent) — AI coding assistant
+- [Codex](https://github.com/openai/codex) — AI coding assistant
+
 ## License
 
 [MIT](LICENSE)
