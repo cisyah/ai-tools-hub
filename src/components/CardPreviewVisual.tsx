@@ -12,6 +12,11 @@ type CardPreviewVisualProps = {
   emptyLabel?: string;
 };
 
+function toProxyUrl(url: string): string {
+  if (!url.startsWith("http")) return url;
+  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+}
+
 export function CardPreviewVisual({
   previewUrl,
   previewPosition = "50% 0%",
@@ -20,22 +25,35 @@ export function CardPreviewVisual({
   imageClassName = "h-full w-full object-cover",
   emptyLabel,
 }: CardPreviewVisualProps) {
-  const [previewBroken, setPreviewBroken] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const [triedProxy, setTriedProxy] = useState(false);
 
   useEffect(() => {
-    setPreviewBroken(false);
+    setImgSrc(previewUrl);
+    setTriedProxy(false);
   }, [previewUrl]);
 
-  if (previewUrl && !previewBroken) {
+  const handleError = () => {
+    if (!triedProxy && imgSrc && imgSrc.startsWith("http")) {
+      // 直接加载失败，走代理
+      setTriedProxy(true);
+      setImgSrc(toProxyUrl(imgSrc));
+    } else {
+      // 代理也失败了，显示 fallback
+      setImgSrc(null);
+    }
+  };
+
+  if (imgSrc) {
     return (
       <div className={className}>
         <img
-          src={previewUrl}
+          src={imgSrc}
           alt=""
           className={imageClassName}
           style={{ objectPosition: previewPosition }}
           loading="lazy"
-          onError={() => setPreviewBroken(true)}
+          onError={handleError}
         />
       </div>
     );

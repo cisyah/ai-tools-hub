@@ -7,7 +7,7 @@ export type PlatformMetadata = {
   title: string;
   author: string;
   thumbnail: string | null;
-  platform: "youtube" | "bilibili" | "xiaohongshu" | "generic";
+  platform: "youtube" | "bilibili" | "xiaohongshu" | "twitter" | "github" | "generic";
 };
 
 // ── Platform Detection ──────────────────────────────────────────────
@@ -46,6 +46,18 @@ export function detectPlatform(url: string): PlatformInfo {
       if (idMatch) return { platform: "xiaohongshu", id: idMatch[1] };
       const noteMatch = u.pathname.match(/\/discovery\/item\/([\w]+)/);
       if (noteMatch) return { platform: "xiaohongshu", id: noteMatch[1] };
+    }
+
+    // Twitter/X: twitter.com/user/status/xxx, x.com/user/status/xxx
+    if (host === "twitter.com" || host === "x.com") {
+      const statusMatch = u.pathname.match(/\/status\/(\d+)/);
+      if (statusMatch) return { platform: "twitter", id: statusMatch[1] };
+      return { platform: "twitter", id: null };
+    }
+
+    // GitHub: github.com/owner/repo
+    if (host === "github.com" || host === "gist.github.com") {
+      return { platform: "github", id: null };
     }
 
     return { platform: "generic", id: null };
@@ -154,6 +166,56 @@ async function extractXiaohongshu(
   };
 }
 
+// ── Twitter/X (使用 OG tags) ────────────────────────────────────────
+
+async function extractTwitter(
+  _url: string
+): Promise<PlatformMetadata | null> {
+  // Twitter 也需要通过浏览器提取，服务端无法直接获取
+  // 返回平台标记，让 Chrome 插件在客户端提取
+  return {
+    title: "",
+    author: "",
+    thumbnail: null,
+    platform: "twitter",
+  };
+}
+
+// ── GitHub (使用 OG tags) ───────────────────────────────────────────
+
+async function extractGitHub(
+  url: string
+): Promise<PlatformMetadata | null> {
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts.length < 2) return null;
+
+    const [owner, repo] = parts;
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}`;
+
+    const res = await fetch(apiUrl, {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "AI-Tools-Hub",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    return {
+      title: data.full_name || `${owner}/${repo}`,
+      author: data.owner?.login || owner,
+      thumbnail: data.owner?.avatar_url || null,
+      platform: "github",
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── 统一入口 ────────────────────────────────────────────────────────
 
 export async function extractPlatformMetadata(
@@ -168,6 +230,10 @@ export async function extractPlatformMetadata(
       return extractBilibili(url, id);
     case "xiaohongshu":
       return extractXiaohongshu(url);
+    case "twitter":
+      return extractTwitter(url);
+    case "github":
+      return extractGitHub(url);
     default:
       return null;
   }

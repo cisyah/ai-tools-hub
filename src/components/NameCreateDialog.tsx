@@ -55,7 +55,7 @@ export function NameCreateDialog({
         className="w-full max-w-md overflow-hidden rounded-lg border border-border bg-surface shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3 px-6 pb-3 pt-6">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          {title ? <h2 className="text-lg font-semibold">{title}</h2> : <div />}
           <button
             type="button"
             className="rounded-md p-2 hover:bg-surface-strong"

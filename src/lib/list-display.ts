@@ -99,6 +99,5 @@ export function splitListDisplayName(name: string): { emoji: string; title: stri
 }
 
 export function composeListDisplayName(emoji: string, title: string): string {
-  const trimmedTitle = title.trim();
-  return emoji ? `${emoji} ${trimmedTitle}`.trim() : trimmedTitle;
+  return emoji ? `${emoji} ${title}` : title;
 }

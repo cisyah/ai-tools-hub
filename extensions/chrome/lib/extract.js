@@ -25,6 +25,8 @@ export function extractPageInfo() {
     if (host === "youtube.com" || host === "m.youtube.com" || host === "youtu.be") return "youtube";
     if (host === "bilibili.com" || host === "m.bilibili.com") return "bilibili";
     if (host === "xiaohongshu.com" || host === "xhslink.com") return "xiaohongshu";
+    if (host === "twitter.com" || host === "x.com" || host === "t.co") return "twitter";
+    if (host === "github.com" || host === "gist.github.com") return "github";
     return "generic";
   }
 
@@ -93,6 +95,48 @@ export function extractPageInfo() {
       previewUrl: thumbnail,
       platform: "xiaohongshu",
       author,
+    };
+  }
+
+  // ── Twitter/X-specific extraction ──────────────────────────────
+  function extractTwitter() {
+    const title = pick(['meta[property="og:title"]', 'meta[name="twitter:title"]'])
+      || document.title.replace(/ on X$/, "").replace( / \| X$/, "").trim();
+    const description = pick(['meta[property="og:description"]', 'meta[name="twitter:description"]']) || "";
+    const image = toAbsolute(pick(['meta[property="og:image"]', 'meta[name="twitter:image"]']));
+    const author = pick(['meta[name="twitter:creator"]'])
+      || document.querySelector('[data-testid="User-Name"]')?.textContent?.trim()
+      || "";
+
+    return {
+      name: title,
+      description: author ? `${author} · ${description}`.slice(0, 120) : description.slice(0, 120),
+      previewUrl: image,
+      platform: "twitter",
+      author,
+    };
+  }
+
+  // ── GitHub-specific extraction ─────────────────────────────────
+  function extractGitHub() {
+    // GitHub has good OG tags
+    const title = pick(['meta[property="og:title"]'])
+      || document.title.replace(/ · GitHub$/, "").trim();
+    const description = pick(['meta[property="og:description"]']) || "";
+    const image = toAbsolute(pick(['meta[property="og:image"]']));
+    const author = document.querySelector('.author a, [rel="author"]')?.textContent?.trim()
+      || "";
+
+    // Extract repo owner/name from URL
+    const pathParts = location.pathname.split("/").filter(Boolean);
+    const repoName = pathParts.length >= 2 ? `${pathParts[0]}/${pathParts[1]}` : "";
+
+    return {
+      name: repoName || title,
+      description: description.slice(0, 120),
+      previewUrl: image,
+      platform: "github",
+      author: author || pathParts[0] || "",
     };
   }
 
@@ -180,6 +224,12 @@ export function extractPageInfo() {
       break;
     case "xiaohongshu":
       result = extractXiaohongshu();
+      break;
+    case "twitter":
+      result = extractTwitter();
+      break;
+    case "github":
+      result = extractGitHub();
       break;
     default:
       result = extractGeneric();

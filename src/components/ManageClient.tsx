@@ -236,7 +236,7 @@ export function ManageClient() {
         <Link
           href="/manage"
           className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-            activeView === "apps" ? "bg-accent-soft text-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
+            activeView === "apps" ? "bg-accent-soft text-foreground" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
           }`}
         >
           {t("pages.manage.tabApps")}
@@ -244,7 +244,7 @@ export function ManageClient() {
         <Link
           href="/manage?view=tags"
           className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-            activeView === "tags" ? "bg-accent-soft text-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
+            activeView === "tags" ? "bg-accent-soft text-foreground" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
           }`}
         >
           {t("pages.manage.tabTags")}

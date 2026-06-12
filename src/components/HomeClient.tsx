@@ -44,7 +44,7 @@ export function HomeClient() {
   const { showToast } = useToast();
   const storedFiltersLoaded = useRef(false);
 
-  const tagParam = searchParams.get("tag")?.trim() || "";
+  const tagParam = searchParams.getAll("tag").map((t) => t.trim()).filter(Boolean).join(", ");
   const isFavouritesView = searchParams.get("favorite") === "favorite";
 
   useEffect(() => {
@@ -66,10 +66,10 @@ export function HomeClient() {
 
   useEffect(() => {
     const favoriteParam = searchParams.get("favorite");
-    const nextTag = searchParams.get("tag")?.trim() || "";
+    const nextTags = searchParams.getAll("tag").map((t) => t.trim()).filter(Boolean);
     const urlFilters: Pick<FilterState, "favorite" | "filterTags"> = {
-      favorite: favoriteParam === "favorite" ? "favorite" : favoriteParam === "normal" ? "normal" : "",
-      filterTags: nextTag ? [nextTag] : [],
+      favorite: searchParams.get("favorite") === "favorite" ? "favorite" : searchParams.get("favorite") === "normal" ? "normal" : "",
+      filterTags: nextTags,
     };
 
     if (!storedFiltersLoaded.current) {
@@ -101,7 +101,11 @@ export function HomeClient() {
     const params = new URLSearchParams();
     if (cleanNext.favorite === "favorite") params.set("favorite", "favorite");
     else if (cleanNext.favorite === "normal") params.set("favorite", "normal");
-    if (cleanNext.filterTags.length === 1) params.set("tag", cleanNext.filterTags[0]);
+    if (cleanNext.filterTags.length) {
+      for (const tag of cleanNext.filterTags) {
+        params.append("tag", tag);
+      }
+    }
 
     const query = params.toString();
     router.replace(query ? `/?${query}` : "/", { scroll: false });

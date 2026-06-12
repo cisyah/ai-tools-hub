@@ -4,6 +4,7 @@ import { Folder, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@/components/LocaleProvider";
 import { SelectMenu } from "@/components/SelectMenu";
+import { TagInput } from "@/components/TagInput";
 import { useListKindLabels } from "@/lib/i18n/hooks";
 import { composeListDisplayName, listEmojiOptions, splitListDisplayName } from "@/lib/list-display";
 import { defaultListFilters, type ListInput, type ListKind, type SavedList } from "@/lib/types";
@@ -37,7 +38,7 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
   const { t } = useTranslation();
   const listKindLabels = useListKindLabels();
   const [input, setInput] = useState<ListInput>(() => toInput(list));
-  const [tagsText, setTagsText] = useState(() => toInput(list).filters.tags.join(", "));
+  const [smartTags, setSmartTags] = useState<string[]>(() => toInput(list).filters.tags);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -47,7 +48,7 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
   useEffect(() => {
     const nextInput = toInput(list);
     setInput(nextInput);
-    setTagsText(nextInput.filters.tags.join(", "));
+    setSmartTags(nextInput.filters.tags);
     setEmojiPickerOpen(false);
   }, [list]);
 
@@ -78,18 +79,10 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
     setError("");
 
     try {
-      const tags = Array.from(
-        new Set(
-          tagsText
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter(Boolean),
-        ),
-      );
       await onSubmit({
         ...input,
         name: composeListDisplayName(listTitle.emoji, listTitle.title),
-        filters: input.kind === "smart" ? { ...input.filters, type: "", tags } : defaultListFilters,
+        filters: input.kind === "smart" ? { ...input.filters, type: "", tags: smartTags } : defaultListFilters,
       });
       onClose();
     } catch (err) {
@@ -228,11 +221,12 @@ export function ListDialog({ list, onClose, onSubmit }: ListDialogProps) {
               </div>
               <label className="space-y-1.5">
                 <span className="text-sm font-medium">{t("listDialog.tagsAnd")}</span>
-                <input
-                  value={tagsText}
-                  onChange={(event) => setTagsText(event.target.value)}
+                <TagInput
+                  tags={smartTags}
+                  onChange={setSmartTags}
                   placeholder={t("listDialog.tagsPlaceholder")}
-                  className="h-10 w-full rounded-md border border-border px-3 text-sm outline-none focus:border-ring"
+                  morePlaceholder={t("cardDialog.tagsMorePlaceholder")}
+                  removeLabel={(tag) => t("cardDialog.removeTag", { name: tag })}
                 />
               </label>
             </div>

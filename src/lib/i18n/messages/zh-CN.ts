@@ -250,6 +250,8 @@ const zhCN = {
   },
   platformSources: {
     other: "其他",
+    twitter: "X",
+    github: "GitHub",
   },
   cardDialog: {
     editTitle: "编辑卡片",

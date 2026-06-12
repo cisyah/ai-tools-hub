@@ -1,15 +1,19 @@
-export type PlatformSource = "youtube" | "bilibili" | "xiaohongshu" | "other";
+export type PlatformSource = "youtube" | "bilibili" | "xiaohongshu" | "twitter" | "github" | "other";
 
 const sourceDomains: Record<Exclude<PlatformSource, "other">, string[]> = {
   youtube: ["youtube.com", "m.youtube.com", "youtu.be"],
   bilibili: ["bilibili.com", "www.bilibili.com", "b23.tv"],
   xiaohongshu: ["xiaohongshu.com", "www.xiaohongshu.com", "xhslink.com"],
+  twitter: ["twitter.com", "x.com", "t.co"],
+  github: ["github.com", "www.github.com", "gist.github.com"],
 };
 
 export const platformSourceLabels: Record<PlatformSource, string> = {
   youtube: "YouTube",
   bilibili: "B 站",
   xiaohongshu: "小红书",
+  twitter: "X",
+  github: "GitHub",
   other: "其他",
 };
 
@@ -39,6 +43,8 @@ export function getPlatformSource(url: string, sourceDomain = ""): PlatformSourc
     if (hostMatches(host, sourceDomains.youtube)) return "youtube";
     if (hostMatches(host, sourceDomains.bilibili)) return "bilibili";
     if (hostMatches(host, sourceDomains.xiaohongshu)) return "xiaohongshu";
+    if (hostMatches(host, sourceDomains.twitter)) return "twitter";
+    if (hostMatches(host, sourceDomains.github)) return "github";
   }
 
   return "other";

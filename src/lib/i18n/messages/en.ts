@@ -252,6 +252,8 @@ const en = {
   },
   platformSources: {
     other: "Other",
+    twitter: "X",
+    github: "GitHub",
   },
   cardDialog: {
     editTitle: "Edit card",

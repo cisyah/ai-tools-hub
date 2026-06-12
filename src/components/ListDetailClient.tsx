@@ -1,5 +1,6 @@
 "use client";
 
+import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AddMoreCard } from "@/components/AddableAppCard";
 import { CardDialog } from "@/components/CardDialog";
@@ -29,6 +30,17 @@ export function ListDetailClient({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [dialogCard, setDialogCard] = useState<Card | null | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredCards = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return cards;
+    return cards.filter((card) =>
+      [card.name, card.url, card.description, card.sourceDomain, card.tags.join(" ")]
+        .filter(Boolean)
+        .some((field) => field.toLowerCase().includes(query)),
+    );
+  }, [cards, searchQuery]);
 
   async function refreshList() {
     const [listResponse, cardsResponse] = await Promise.all([
@@ -101,7 +113,9 @@ export function ListDetailClient({ id }: { id: string }) {
   }
 
   const listDescription = list
-    ? `${listKindLabels[list.kind]} · ${list.description || t("common.noDescription")}`
+    ? list.description
+      ? `${listKindLabels[list.kind]} · ${list.description}`
+      : listKindLabels[list.kind]
     : t("pages.listDetail.loading");
 
   return (
@@ -114,9 +128,19 @@ export function ListDetailClient({ id }: { id: string }) {
       {loading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div> : null}
       {error ? <div className="rounded-full border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
       {!loading && list ? (
-        cards.length ? (
+        <>
+        <div className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t("pages.manage.searchPlaceholder")}
+            className="h-10 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-sm outline-none transition focus:border-ring"
+          />
+        </div>
+        {filteredCards.length ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {cards.map((card) => (
+            {filteredCards.map((card) => (
               <ToolCard
                 key={card.id}
                 card={card}
@@ -150,6 +174,10 @@ export function ListDetailClient({ id }: { id: string }) {
               />
             ) : null}
           </div>
+        ) : searchQuery ? (
+          <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-10 text-center text-sm text-muted-foreground">
+            {t("pages.listDetail.pickerNoMatch")}
+          </div>
         ) : list.kind === "manual" && addableCards.length ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <AddMoreCard
@@ -162,7 +190,8 @@ export function ListDetailClient({ id }: { id: string }) {
           <div className="rounded-lg border border-dashed border-border bg-muted px-4 py-10 text-center text-sm text-muted-foreground">
             {list.kind === "manual" ? t("pages.listDetail.pickerEmpty") : t("cardGrid.empty")}
           </div>
-        )
+        )}
+        </>
       ) : null}
       {dialogCard !== undefined ? (
         <CardDialog

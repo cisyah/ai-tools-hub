@@ -97,7 +97,7 @@ export type MetadataResult = {
   previewUrlCandidates: string[];
   sourceDomain: string;
   author: string;
-  platform: "youtube" | "bilibili" | "xiaohongshu" | "generic";
+  platform: "youtube" | "bilibili" | "xiaohongshu" | "twitter" | "github" | "generic";
 };
 
 export type TagCount = {

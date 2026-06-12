@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 import { CardPreviewVisual } from "@/components/CardPreviewVisual";
 import { iconOptions, CardIcon } from "@/components/icons";
 import { pickFirstLoadableImageUrl } from "@/lib/preview-url";
+import { analyzeImageFocus } from "@/lib/smart-crop";
 import { cleanTitle } from "@/lib/title-cleaner";
 import { extractUrl } from "@/lib/url-extractor";
 import { SelectMenu } from "@/components/SelectMenu";
+import { TagInput } from "@/components/TagInput";
 import { useTranslation } from "@/components/LocaleProvider";
 import { useToast } from "@/components/ToastProvider";
 import { translateApiError } from "@/lib/i18n";
@@ -107,82 +109,59 @@ function toInput(card?: Card | null): CardInput {
   };
 }
 
-function normalizeTagName(value: string) {
-  return value
-    .replace(/^#+/, "")
-    .replace(/^[,，、;；\s]+|[,，、;；\s]+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function uniqueTags(tags: string[]) {
-  return Array.from(new Set(tags.map(normalizeTagName).filter(Boolean)));
-}
-
-function parseTagDraft(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return [];
-
-  const chunks = trimmed.includes("#")
-    ? trimmed.split("#").flatMap((chunk) => chunk.split(/[,，、;；\n]+/))
-    : trimmed.split(/[,，、;；\n]+/);
-
-  return uniqueTags(chunks);
-}
-
 export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProps) {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [input, setInput] = useState<CardInput>(() => toInput(card));
-  const [tagDraft, setTagDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
-  const [error, setError] = useState("");
   const title = card ? t("cardDialog.editTitle") : t("cardDialog.newTitle");
 
   useEffect(() => {
     const nextInput = toInput(card);
     setInput(nextInput);
-    setTagDraft("");
     setDeleteConfirm(false);
   }, [card]);
+
+  // ── 预览图 URL 变化时自动分析焦点位置（仅外部 URL） ──
+  useEffect(() => {
+    const url = input.previewUrl;
+    if (!url || !url.startsWith("http") || input.previewPosition !== "50% 0%") return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const focus = await analyzeImageFocus(url);
+        if (focus.confidence > 0.2) {
+          setInput((current) => ({ ...current, previewPosition: focus.position }));
+        }
+      } catch {
+        // ignore
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [input.previewUrl]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    setError("");
 
     try {
-      const tags = uniqueTags([...input.tags, ...parseTagDraft(tagDraft)]);
-      await onSubmit({ ...input, type: "external_link", tags });
+      await onSubmit({ ...input, type: "external_link", tags: input.tags });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? translateApiError(err.message, t) : t("cardDialog.saveFailed"));
+      showToast({ message: err instanceof Error ? translateApiError(err.message, t) : t("cardDialog.saveFailed") });
     } finally {
       setSaving(false);
     }
-  }
-
-  function addDraftTags() {
-    const nextTags = parseTagDraft(tagDraft);
-    if (!nextTags.length) return false;
-
-    setInput((current) => ({ ...current, tags: uniqueTags([...current.tags, ...nextTags]) }));
-    setTagDraft("");
-    return true;
-  }
-
-  function removeTag(tag: string) {
-    setInput((current) => ({ ...current, tags: current.tags.filter((item) => item !== tag) }));
   }
 
   async function refreshMetadata() {
     if (!input.url) return;
 
     setFetchingMetadata(true);
-    setError("");
 
     try {
       const response = await fetch("/api/cards/metadata", {
@@ -207,7 +186,7 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
 
       // ── 小红书：完全无法提取，提示手动填写 ──
       if (meta.platform === "xiaohongshu" && !meta.title) {
-        setError("⚠️ 小红书暂不支持自动提取，请手动填写标题和上传封面图片");
+        showToast({ message: "小红书暂不支持自动提取，请手动填写标题和上传封面图片" });
         setFetchingMetadata(false);
         return;
       }
@@ -218,11 +197,24 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
 
       setInput((current) => ({
         ...current,
-        name: current.name || newTitle,
-        description: current.description || newDesc,
+        name: newTitle || current.name,
+        description: newDesc || current.description,
         previewUrl: newPreview ?? (current.previewUrl?.startsWith("data:") ? current.previewUrl : null),
-        sourceDomain: current.sourceDomain || meta.sourceDomain || "",
+        sourceDomain: meta.sourceDomain || current.sourceDomain || "",
       }));
+
+      // ── 智能分析图片焦点位置 ──
+      const imageUrl = newPreview ?? (candidates.length ? candidates[0] : null);
+      if (imageUrl && imageUrl.startsWith("http")) {
+        try {
+          const focus = await analyzeImageFocus(imageUrl);
+          if (focus.confidence > 0.2) {
+            setInput((current) => ({ ...current, previewPosition: focus.position }));
+          }
+        } catch {
+          // 分析失败，保持默认位置
+        }
+      }
 
       // ── 检查哪些字段没拿到，给出具体提示 ──
       const missing: string[] = [];
@@ -233,13 +225,13 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
       if (missing.length === 0) {
         showToast({ message: t("cardDialog.autofillSuccess") });
       } else if (missing.length === 3) {
-        setError("⚠️ 未能提取到任何信息，请手动填写标题、简介和上传封面图片");
+        showToast({ message: "未能提取到任何信息，请手动填写" });
       } else {
-        showToast({ message: `已自动填写，还需手动补充：${missing.join("、")}` });
+        showToast({ message: `提取成功 (${missing.join("、")}除外)` });
       }
     } catch (err) {
       const msg = err instanceof Error ? translateApiError(err.message, t) : t("cardDialog.metadataFailed");
-      setError(`⚠️ ${msg}，请手动填写标题、简介和上传封面图片`);
+      showToast({ message: `${msg}，请手动填写` });
     } finally {
       setFetchingMetadata(false);
     }
@@ -250,8 +242,6 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
     event.target.value = "";
     if (!file) return;
 
-    setError("");
-
     try {
       const previewUrl = await compressImageFile(file, {
         typeError: t("cardDialog.imageTypeError"),
@@ -260,7 +250,7 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
       });
       setInput((current) => ({ ...current, previewUrl }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("cardDialog.imageHandleFailed"));
+      showToast({ message: err instanceof Error ? err.message : t("cardDialog.imageHandleFailed") });
     }
   }
 
@@ -268,13 +258,12 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
     if (!card || !onDelete) return;
 
     setDeleting(true);
-    setError("");
 
     try {
       await onDelete(card);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? translateApiError(err.message, t) : t("cardDialog.deleteFailed"));
+      showToast({ message: err instanceof Error ? translateApiError(err.message, t) : t("cardDialog.deleteFailed") });
       setDeleteConfirm(false);
     } finally {
       setDeleting(false);
@@ -347,9 +336,9 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
               onChange={(event) =>
                 setInput({ ...input, description: event.target.value })
               }
-              rows={3}
+              rows={1}
               placeholder={t("cardDialog.descriptionPlaceholder")}
-              className="w-full resize-none rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-ring"
+              className="w-full min-h-[2.5rem] resize-y rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-ring"
             />
           </label>
           <div className="grid gap-4 sm:col-span-2 sm:grid-cols-[minmax(180px,0.42fr)_minmax(0,1fr)]">
@@ -368,39 +357,13 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
             </div>
             <div className="min-w-0 space-y-1.5">
               <span className="text-sm font-medium">{t("cardDialog.tags")}</span>
-              <div className="flex min-h-10 w-full flex-wrap items-center gap-2 rounded-md border border-border px-2 py-1.5 transition focus-within:border-ring">
-                {input.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-sm font-medium text-foreground"
-                  >
-                    <span className="min-w-0 truncate">#{tag}</span>
-                    <button
-                      type="button"
-                      className="rounded-full p-0.5 text-muted-foreground hover:bg-background/70 hover:text-foreground"
-                      onClick={() => removeTag(tag)}
-                      aria-label={t("cardDialog.removeTag", { name: tag })}
-                    >
-                      <X size={13} />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  value={tagDraft}
-                  onChange={(event) => setTagDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                      event.preventDefault();
-                      addDraftTags();
-                    }
-                    if (event.key === "Backspace" && !tagDraft && input.tags.length) {
-                      setInput((current) => ({ ...current, tags: current.tags.slice(0, -1) }));
-                    }
-                  }}
-                  placeholder={input.tags.length ? t("cardDialog.tagsMorePlaceholder") : t("cardDialog.tagsPlaceholder")}
-                  className="h-7 min-w-[180px] flex-1 border-0 bg-transparent px-1 text-sm outline-none placeholder:text-neutral-400"
-                />
-              </div>
+              <TagInput
+                tags={input.tags}
+                onChange={(tags) => setInput({ ...input, tags })}
+                placeholder={t("cardDialog.tagsPlaceholder")}
+                morePlaceholder={t("cardDialog.tagsMorePlaceholder")}
+                removeLabel={(tag) => t("cardDialog.removeTag", { name: tag })}
+              />
             </div>
           </div>
           <div className="space-y-2 sm:col-span-2">
@@ -458,8 +421,8 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
             <textarea
               value={input.notes}
               onChange={(event) => setInput({ ...input, notes: event.target.value })}
-              rows={3}
-              className="w-full resize-none rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-ring"
+              rows={1}
+              className="w-full min-h-[2.5rem] resize-y rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-ring"
             />
           </label>
           <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
@@ -490,14 +453,12 @@ export function CardDialog({ card, onClose, onSubmit, onDelete }: CardDialogProp
               {t("cardDialog.favourite")}
             </button>
           </div>
-          {error ? <div className="text-sm text-red-600 sm:col-span-2">{error}</div> : null}
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-4">
           <div className="min-w-0">
             {card && onDelete ? (
               deleteConfirm ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-red-600">{t("cardDialog.deleteConfirm", { name: card.name })}</span>
                   <button
                     type="button"
                     disabled={actionDisabled}

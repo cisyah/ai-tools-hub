@@ -204,3 +204,40 @@ select:focus {
   text-align: center;
   color: var(--muted);
 }
+
+.toast {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-120%);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 100;
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  white-space: nowrap;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.toast-visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+.toast-ok {
+  background: #ecf6eb;
+  color: var(--ok);
+  border: 1px solid #c3e6c0;
+}
+.toast-error {
+  background: #fdecea;
+  color: var(--danger);
+  border: 1px solid #f5c6cb;
+}
+.toast-warn {
+  background: #fff8e1;
+  color: #b45309;
+  border: 1px solid #ffe082;
+}

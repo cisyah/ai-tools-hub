@@ -14,17 +14,48 @@
 
 ## Features
 
-- 🔖 **卡片管理** — 新增、编辑、归档、删除、批量排序，支持星标和备注
-- 🏷️ **标签系统** — 多标签 AND 筛选，标签重命名、删除，自动清理未使用标签
-- 📂 **列表分组** — 手动列表和智能列表（按搜索词/类型/标签/状态自动归集）
-- 🔍 **元数据自动抓取** — 粘贴 URL 自动提取标题、简介、封面图和来源域名
-- 🎬 **视频平台适配** — YouTube（oEmbed API）、B站（公共 API）自动提取，小红书手动引导
-- 📋 **智能粘贴** — 自动从分享文本中提取 URL，自动清理小红书标题中的 #标签 和噪音文字
-- 🌐 **Chrome 浏览器插件** — 一键保存当前网页到 Hub，支持平台识别和元数据抓取
-- 📊 **数据统计** — 打开次数、近 7/30 日趋势、高频卡片、类型分布和标签分布
+### 📋 卡片管理
+- **CRUD + 批量操作** — 新增、编辑、归档、删除、批量排序，支持星标和备注
+- **右键菜单** — 卡片右键快速操作（编辑、收藏、归档、删除）
+- **智能粘贴** — 自动从分享文本中提取 URL，清理小红书标题中的 #标签 和噪音文字
+
+### 🖼️ 图片预览系统
+- **元数据自动抓取** — 粘贴 URL 自动提取标题、简介、封面图和来源域名
+- **Microlink 全站截图** — 任何网页都能获取封面图或自动截图
+- **图片代理** — 服务端代理绕过 CORS / 防盗链，确保图片稳定加载
+- **智能裁切** — Canvas 焦点分析（Sobel 算子 + 黑边检测），自动设置最佳显示位置
+
+### 🎬 平台适配
+- **YouTube** — oEmbed API 提取标题、封面、频道名
+- **B站** — 公共 API 提取标题、封面、UP 主
+- **X / Twitter** — 识别推文链接，提取内容
+- **GitHub** — 识别仓库链接，提取项目信息
+- **小红书** — 识别链接并引导手动填写（反爬限制）
+
+### 🏷️ 标签系统
+- **多标签 AND 筛选** — checkbox 多选，选中填充主题色 + 勾号
+- **标签管理页** — 标签详情上下布局，标题可点击编辑，搜索卡片，一键 Remove
+- **标签输入组件** — 可复用 TagInput，新增卡片和列表共用
+
+### 📂 列表分组
+- **手动列表** — 自定义分组
+- **智能列表** — 按搜索词 / 类型 / 标签 / 状态自动归集
+- **列表详情搜索** — 在列表内按名称 / URL / 描述 / 标签筛选
+
+### 🌐 Chrome 浏览器插件
+- 一键保存当前网页到 Hub，支持平台识别和元数据抓取
+- 配置服务器地址即可使用
+
+### 📊 数据统计
+- 打开次数、近 7/30 日趋势、高频卡片
+- 类型分布和标签分布
+
+### 🔧 其他
 - 🗃️ **归档系统** — 归档卡片独立查看，可恢复或永久删除
-- 🌏 **中英双语** — 完整的 i18n 支持，界面可切换中文和英文
+- 🌏 **中英双语** — 完整 i18n 支持，界面可切换中文和英文
 - 🎨 **主题系统** — 内置多套主题，支持自定义 CSS 变量
+
+---
 
 ## Screenshots
 
@@ -32,11 +63,13 @@
 |----------|-------|--------|
 | ![Overview](docs/screenshots/overview.png) | ![Stats](docs/screenshots/stats.png) | ![Manage](docs/screenshots/manage.png) |
 
+---
+
 ## Quick Start
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/Xuyahang1201/ai-tools-hub.git
+git clone https://github.com/cisyah/ai-tools-hub.git
 cd ai-tools-hub
 
 # 2. 安装依赖
@@ -97,7 +130,7 @@ docker exec -i ai-tools-hub-mysql mysql -u aitools -paitools123 ai_tools_hub < d
 `.env` 配置：
 
 ```env
-DATABASE_URL=mysql://aitools:aitools123@127.0.0.1:3306/ai_tools_hub
+DATABASE_URL=mysql://aitools:***@127.0.0.1:3306/ai_tools_hub
 ```
 
 停止/重启容器：
@@ -186,7 +219,7 @@ sudo ufw allow 3306/tcp
 **6. `.env` 配置**
 
 ```env
-DATABASE_URL=mysql://aitools:<your_password>@<服务器公网IP>:3306/ai_tools_hub
+DATABASE_URL=mysql://aitools:***@<服务器公网IP>:3306/ai_tools_hub
 ```
 
 ---
@@ -229,10 +262,10 @@ mysql -u aitools -p ai_tools_hub < /path/to/database/seed.sql
 
 ```env
 # 本地部署
-DATABASE_URL=mysql://aitools:<your_password>@127.0.0.1:3306/ai_tools_hub
+DATABASE_URL=mysql://aitools:***@127.0.0.1:3306/ai_tools_hub
 
 # 远程部署（填服务器公网IP）
-DATABASE_URL=mysql://aitools:<your_password>@<服务器公网IP>:3306/ai_tools_hub
+DATABASE_URL=mysql://aitools:***@<服务器公网IP>:3306/ai_tools_hub
 ```
 
 **5. 开放端口（远程连接时需要）**
@@ -248,7 +281,7 @@ DATABASE_URL=mysql://aitools:<your_password>@<服务器公网IP>:3306/ai_tools_h
 
 | 表名 | 说明 |
 |------|------|
-| `cards` | 工具卡片（名称、描述、URL、类型、标签、预览图等） |
+| `cards` | 工具卡片（名称、描述、URL、标签、预览图等） |
 | `card_types` | 自定义卡片类型（默认 6 种，可扩展） |
 | `tag_registry` | 标签注册表（用于标签管理页） |
 | `lists` | 列表（手动列表和智能列表） |
@@ -266,7 +299,7 @@ DATABASE_URL=mysql://aitools:<your_password>@<服务器公网IP>:3306/ai_tools_h
 | `type` | VARCHAR(64) | 类型 ID（关联 card_types） |
 | `icon` | VARCHAR(80) | 图标名称（Lucide 图标） |
 | `preview_url` | MEDIUMTEXT | 预览图（URL 或 base64） |
-| `preview_position` | VARCHAR(32) | 预览图裁剪位置 |
+| `preview_position` | VARCHAR(32) | 预览图裁剪位置（智能分析） |
 | `source_domain` | VARCHAR(255) | 来源域名 |
 | `tags` | JSON | 标签数组，如 `["AI", "效率"]` |
 | `notes` | TEXT | 备注 |
@@ -282,7 +315,7 @@ DATABASE_URL=mysql://aitools:<your_password>@<服务器公网IP>:3306/ai_tools_h
 
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `DATABASE_URL` | ✅ | MySQL 连接字符串，格式：`mysql://user:password@host:port/database` |
+| `DATABASE_URL` | ✅ | MySQL 连接字符串，格式：`mysql://user:***@host:port/database` |
 | `MICROLINK_API_KEY` | ❌ | Microlink API Key，用于增强元数据抓取（截图等）。不填则使用免费端点（有速率限制）。[获取地址](https://microlink.io) |
 | `EXTENSION_API_TOKEN` | ❌ | 浏览器插件写入 Token。留空则仅本地开发可用。公开部署前请设置：`openssl rand -hex 32` |
 
@@ -312,6 +345,8 @@ AI Tools Hub 提供 Chrome 浏览器插件，支持一键保存当前网页。
 支持的平台增强提取：
 - **YouTube** — 自动提取视频标题、封面和频道名
 - **B站** — 自动提取视频标题、封面和 UP 主
+- **X / Twitter** — 识别推文链接
+- **GitHub** — 识别仓库链接
 - **小红书** — 识别链接并引导手动填写（反爬限制）
 
 ---
@@ -323,6 +358,7 @@ AI Tools Hub 提供 Chrome 浏览器插件，支持一键保存当前网页。
 - **Database**: [MySQL 8.0](https://www.mysql.com/) (mysql2 driver)
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **Metadata**: [Microlink API](https://microlink.io/) + 平台专属 API
+- **Image Analysis**: Canvas API (Sobel edge detection for smart crop)
 - **Language**: TypeScript
 
 ## Project Structure
@@ -333,6 +369,8 @@ ai-tools-hub/
 │   ├── schema.sql          # 表结构 + 默认数据
 │   ├── seed.sql            # 示例数据（可选导入）
 │   └── migrations/         # 增量迁移脚本
+├── docs/
+│   └── screenshots/        # 页面截图
 ├── extensions/
 │   └── chrome/             # Chrome 浏览器插件
 ├── src/
@@ -341,20 +379,30 @@ ai-tools-hub/
 │   │   │   ├── cards/      # 卡片 CRUD + 元数据抓取
 │   │   │   ├── lists/      # 列表管理
 │   │   │   ├── tags/       # 标签管理
+│   │   │   ├── proxy-image/# 图片代理（绕过 CORS）
 │   │   │   └── stats/      # 统计数据
 │   │   ├── archive/        # 归档页
 │   │   ├── manage/         # 管理页
 │   │   ├── settings/       # 设置页
 │   │   ├── stats/          # 统计页
 │   │   └── tags/           # 标签页
-│   ├── components/         # React 组件
+│   ├── components/
+│   │   ├── CardPreviewVisual.tsx  # 图片预览（含代理回退）
+│   │   ├── CardDialog.tsx        # 卡片编辑对话框
+│   │   ├── TagInput.tsx          # 可复用标签输入组件
+│   │   ├── TagDetailModal.tsx    # 标签详情弹窗
+│   │   ├── FilterBar.tsx         # 筛选栏（标签多选）
+│   │   └── ...
 │   ├── lib/
-│   │   ├── db.ts           # 数据库连接
-│   │   ├── preview.ts      # 元数据抓取（Microlink + 平台提取）
-│   │   ├── platform-extractors.ts  # YouTube/B站/小红书平台提取器
-│   │   ├── title-cleaner.ts        # 标题清理工具
-│   │   ├── url-extractor.ts        # URL 提取工具
-│   │   └── types.ts        # TypeScript 类型定义
+│   ├── │   ├── db.ts             # 数据库连接
+│   │   ├── preview.ts           # 元数据抓取（Microlink + 平台提取）
+│   │   ├── preview-url.ts       # 图片 URL 检测
+│   │   ├── platform-extractors.ts # YouTube/B站/X/GitHub 平台提取器
+│   │   ├── platform-source.ts   # 平台域名匹配
+│   │   ├── smart-crop.ts        # 智能裁切（Canvas 焦点分析）
+│   │   ├── title-cleaner.ts     # 标题清理工具
+│   │   ├── url-extractor.ts     # URL 提取工具
+│   │   └── types.ts             # TypeScript 类型定义
 │   └── i18n/               # 国际化资源
 ├── .env.example            # 环境变量模板
 ├── package.json

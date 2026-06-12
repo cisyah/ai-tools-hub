@@ -27,17 +27,26 @@ function getDomain(url: string): string {
   }
 }
 
+/**
+ * 图片优先级：
+ * 1. og:image（封面图）
+ * 2. 文章/视频中的图片
+ * 3. 页面截图
+ * 最低保障：一定有截图
+ */
 export function resolvePreviewUrlCandidates(data: MicrolinkResponse["data"]): string[] {
   if (!data) return [];
 
   const candidates: string[] = [];
 
+  // 有视频时，优先用封面图（不直接用视频 URL）
   if (data.video?.url && data.image?.url) {
     candidates.push(data.image.url);
   } else if (data.image?.url) {
     candidates.push(data.image.url);
   }
 
+  // 截图兜底
   if (data.screenshot?.url) {
     candidates.push(data.screenshot.url);
   }
@@ -65,15 +74,16 @@ export async function fetchUrlMetadata(url: string): Promise<MetadataResult> {
 
   if (!isExternalHttpUrl(url)) return fallback;
 
-  // ── 1. 尝试平台专属提取器 ──────────────────────────────────
+  // ── 1. 平台专属提取器：只取 title / author / platform ──
+  let platformTitle = "";
+  let platformAuthor = "";
+  let platformId: MetadataResult["platform"] = "generic";
+
   try {
     const platformResult = await extractPlatformMetadata(url);
     if (platformResult) {
-      // 小红书：返回平台标记但无标题，提示用户手动填写
-      if (
-        platformResult.platform === "xiaohongshu" &&
-        !platformResult.title
-      ) {
+      // 小红书完全无法提取，直接返回
+      if (platformResult.platform === "xiaohongshu" && !platformResult.title) {
         return {
           title: "",
           description: "",
@@ -84,26 +94,15 @@ export async function fetchUrlMetadata(url: string): Promise<MetadataResult> {
           platform: "xiaohongshu",
         };
       }
-      // 其他平台：有标题就用
-      if (platformResult.title) {
-        return {
-          title: platformResult.title,
-          description: "",
-          previewUrl: platformResult.thumbnail,
-          previewUrlCandidates: platformResult.thumbnail
-            ? [platformResult.thumbnail]
-            : [],
-          sourceDomain: domain,
-          author: platformResult.author,
-          platform: platformResult.platform,
-        };
-      }
+      platformTitle = platformResult.title || "";
+      platformAuthor = platformResult.author || "";
+      platformId = platformResult.platform;
     }
   } catch {
     // 平台提取器失败，继续走 Microlink
   }
 
-  // ── 2. 兜底：Microlink 通用抓取 ────────────────────────────
+  // ── 2. Microlink：负责图片（og:image → 截图）+ 补充元数据 ──
   try {
     const endpoint = new URL("https://api.microlink.io/");
     endpoint.searchParams.set("url", url);
@@ -113,24 +112,50 @@ export async function fetchUrlMetadata(url: string): Promise<MetadataResult> {
     const apiKey = process.env.MICROLINK_API_KEY;
     const response = await fetch(endpoint, {
       headers: apiKey ? { "x-api-key": apiKey } : undefined,
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     });
 
-    if (!response.ok) return fallback;
+    if (!response.ok) {
+      // Microlink 失败，用平台数据（无图片）
+      if (platformTitle) {
+        return {
+          title: platformTitle,
+          description: "",
+          previewUrl: null,
+          previewUrlCandidates: [],
+          sourceDomain: domain,
+          author: platformAuthor,
+          platform: platformId,
+        };
+      }
+      return fallback;
+    }
 
     const payload = (await response.json()) as MicrolinkResponse;
     const previewUrlCandidates = resolvePreviewUrlCandidates(payload.data);
 
     return {
-      title: payload.data?.title || "",
+      title: platformTitle || payload.data?.title || "",
       description: payload.data?.description || "",
       previewUrl: previewUrlCandidates[0] ?? null,
       previewUrlCandidates,
       sourceDomain: getDomain(payload.data?.url || url),
-      author: payload.data?.publisher || "",
-      platform: "generic",
+      author: platformAuthor || payload.data?.publisher || "",
+      platform: platformId,
     };
   } catch {
+    // Microlink 异常，用平台数据（无图片）
+    if (platformTitle) {
+      return {
+        title: platformTitle,
+        description: "",
+        previewUrl: null,
+        previewUrlCandidates: [],
+        sourceDomain: domain,
+        author: platformAuthor,
+        platform: platformId,
+      };
+    }
     return fallback;
   }
 }

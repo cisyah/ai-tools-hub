@@ -95,7 +95,7 @@ export function FilterBar({ filters, tags, statusCounts, showFavoriteFilter = tr
             <span className="text-xs text-current/70">{filters.filterTags.length || tags.length}</span>
           </button>
           {tagMenuOpen ? (
-            <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-64 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-2xl">
+            <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-2xl">
               {tags.map((tag) => {
                 const selected = filters.filterTags.includes(tag.name);
                 return (
@@ -104,14 +104,18 @@ export function FilterBar({ filters, tags, statusCounts, showFavoriteFilter = tr
                     type="button"
                     role="option"
                     aria-selected={selected}
-                    className={`flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-sm transition ${
-                      selected ? "bg-surface-strong text-foreground" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
+                    className={`flex min-h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs transition ${
+                      selected ? "bg-accent-soft text-foreground" : "text-muted-foreground hover:bg-surface-strong hover:text-foreground"
                     }`}
                     onClick={() => toggleTag(tag.name)}
                   >
-                    <Check size={15} className={selected ? "opacity-100" : "opacity-0"} />
+                    <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition ${
+                      selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                    }`}>
+                      {selected ? <Check size={10} /> : null}
+                    </span>
                     <span className="min-w-0 flex-1 truncate">{tag.name}</span>
-                    <span className="text-xs text-current/55">{tag.count}</span>
+                    <span className="text-[10px] text-current/55">{tag.count}</span>
                   </button>
                 );
               })}
