@@ -409,9 +409,10 @@ ai-tools-hub/
 └── README.md
 ```
 
-## Contributors
+## Built With
 
-- [cisyah](https://github.com/cisyah) — Product design & development
+This project was built with the help of AI coding assistants:
+
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) — AI coding assistant
 - [Codex](https://github.com/openai/codex) — AI coding assistant
 
