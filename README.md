@@ -59,9 +59,9 @@
 
 ## Screenshots
 
-| Overview | Stats | Manage |
-|----------|-------|--------|
-| ![Overview](docs/screenshots/overview.png) | ![Stats](docs/screenshots/stats.png) | ![Manage](docs/screenshots/manage.png) |
+| Overview | Stats | Manage | Tags |
+|----------|-------|--------|------|
+| ![Overview](docs/screenshots/overview.png) | ![Stats](docs/screenshots/stats.png) | ![Manage](docs/screenshots/manage.png) | ![Tags](docs/screenshots/tags.png) |
 
 ---
 
